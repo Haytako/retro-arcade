@@ -680,7 +680,7 @@ function pongLoop(){if(!pongActive)return;
     const maxV=8;ballVX=Math.max(-maxV,Math.min(maxV,ballVX));ballVY=Math.max(-maxV,Math.min(maxV,ballVY));
     // Both paddles move at limited speed — like real 1972 Pong knobs
     // Player is 2x faster than AI (like arcader.com reference: 4 vs 1.6)
-    const P1_SPEED=4.0, P2_SPEED=1.8;
+    const P1_SPEED=4.0, P2_SPEED=2.4;
     // Player paddle: smoothly follow mouse target at limited speed
     const p1Diff=p1TargetY-p1Y;
     if(Math.abs(p1Diff)>1) p1Y+=Math.sign(p1Diff)*Math.min(P1_SPEED,Math.abs(p1Diff));
