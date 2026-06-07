@@ -673,14 +673,14 @@ function pongLoop(){if(!pongActive)return;
     ballX+=ballVX;ballY+=ballVY;
     if(ballY-BALL_R<=0){ballVY=Math.abs(ballVY);ballY=BALL_R;beep(440,40,0.1)}
     if(ballY+BALL_R>=PH){ballVY=-Math.abs(ballVY);ballY=PH-BALL_R;beep(440,40,0.1)}
-    if(ballX-BALL_R<=PADDLE_W+16&&ballX+BALL_R>16&&ballY+BALL_R>=p1Y&&ballY-BALL_R<=p1Y+PADDLE_H&&ballVX<0){ballVX=-ballVX*1.05;const rel=(ballY-p1Y)/PADDLE_H-0.5;ballVY=rel*6;ballX=PADDLE_W+16+BALL_R;beep(660,40,0.15)}
-    if(ballX+BALL_R>=PW-PADDLE_W-16&&ballX-BALL_R<PW-16&&ballY+BALL_R>=p2Y&&ballY-BALL_R<=p2Y+PADDLE_H&&ballVX>0){ballVX=-ballVX*1.05;const rel=(ballY-p2Y)/PADDLE_H-0.5;ballVY=rel*6;ballX=PW-PADDLE_W-16-BALL_R;beep(660,40,0.15)}
+    if(ballX-BALL_R<=PADDLE_W+16&&ballX+BALL_R>16&&ballY+BALL_R>=p1Y&&ballY-BALL_R<=p1Y+PADDLE_H&&ballVX<0){ballVX=-ballVX*1.05;const rel=(ballY-p1Y)/PADDLE_H-0.5;ballVY=rel*5;ballX=PADDLE_W+16+BALL_R;beep(660,40,0.15)}
+    if(ballX+BALL_R>=PW-PADDLE_W-16&&ballX-BALL_R<PW-16&&ballY+BALL_R>=p2Y&&ballY-BALL_R<=p2Y+PADDLE_H&&ballVX>0){ballVX=-ballVX*1.05;const rel=(ballY-p2Y)/PADDLE_H-0.5;ballVY=rel*5;ballX=PW-PADDLE_W-16-BALL_R;beep(660,40,0.15)}
     if(ballX<0){score2++;beep(220,150,0.15);pongResetBall(1)}
     if(ballX>PW){score1++;beep(220,150,0.15);pongResetBall(-1)}
-    const maxV=8;ballVX=Math.max(-maxV,Math.min(maxV,ballVX));ballVY=Math.max(-maxV,Math.min(maxV,ballVY));
+    const maxV=10;ballVX=Math.max(-maxV,Math.min(maxV,ballVX));ballVY=Math.max(-maxV,Math.min(maxV,ballVY));
     // Both paddles move at limited speed — like real 1972 Pong knobs
     // Player is 2x faster than AI (like arcader.com reference: 4 vs 1.6)
-    const P1_SPEED=4.0, P2_SPEED=2.4;
+    const P1_SPEED=4.0, P2_SPEED=2.2;
     // Player paddle: smoothly follow mouse target at limited speed
     const p1Diff=p1TargetY-p1Y;
     if(Math.abs(p1Diff)>1) p1Y+=Math.sign(p1Diff)*Math.min(P1_SPEED,Math.abs(p1Diff));
@@ -705,11 +705,11 @@ function pongLoop(){if(!pongActive)return;
     ballX+=ballVX;ballY+=ballVY;
     if(ballY-BALL_R<=0){ballVY=Math.abs(ballVY);ballY=BALL_R;beep(440,40,0.1)}
     if(ballY+BALL_R>=PH){ballVY=-Math.abs(ballVY);ballY=PH-BALL_R;beep(440,40,0.1)}
-    if(ballX-BALL_R<=PADDLE_W+16&&ballX-BALL_R>16&&ballY>=p1Y&&ballY<=p1Y+PADDLE_H&&ballVX<0){ballVX=-ballVX*1.05;const rel=(ballY-p1Y)/PADDLE_H-0.5;ballVY=rel*5;ballX=PADDLE_W+16+BALL_R;beep(660,40,0.15)}
-    if(ballX+BALL_R>=PW-PADDLE_W-16&&ballX+BALL_R<PW-16&&ballY>=p2Y&&ballY<=p2Y+PADDLE_H&&ballVX>0){ballVX=-ballVX*1.05;const rel=(ballY-p2Y)/PADDLE_H-0.5;ballVY=rel*5;ballX=PW-PADDLE_W-16-BALL_R;beep(660,40,0.15)}
+    if(ballX-BALL_R<=PADDLE_W+16&&ballX+BALL_R>16&&ballY+BALL_R>=p1Y&&ballY-BALL_R<=p1Y+PADDLE_H&&ballVX<0){ballVX=-ballVX*1.05;const rel=(ballY-p1Y)/PADDLE_H-0.5;ballVY=rel*5;ballX=PADDLE_W+16+BALL_R;beep(660,40,0.15)}
+    if(ballX+BALL_R>=PW-PADDLE_W-16&&ballX-BALL_R<PW-16&&ballY+BALL_R>=p2Y&&ballY-BALL_R<=p2Y+PADDLE_H&&ballVX>0){ballVX=-ballVX*1.05;const rel=(ballY-p2Y)/PADDLE_H-0.5;ballVY=rel*5;ballX=PW-PADDLE_W-16-BALL_R;beep(660,40,0.15)}
     if(ballX<0){score2++;beep(220,150,0.15);pongResetBall(1);pongPushState()}
     if(ballX>PW){score1++;beep(220,150,0.15);pongResetBall(-1);pongPushState()}
-    const maxV=8;ballVX=Math.max(-maxV,Math.min(maxV,ballVX));ballVY=Math.max(-maxV,Math.min(maxV,ballVY));
+    const maxV=10;ballVX=Math.max(-maxV,Math.min(maxV,ballVX));ballVY=Math.max(-maxV,Math.min(maxV,ballVY));
     if(score1>=WIN_SCORE){pongEndGame(1);return}
     if(score2>=WIN_SCORE){pongEndGame(2);return}
     if(Math.random()<0.3)pongPushState();
