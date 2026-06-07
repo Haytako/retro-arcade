@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RETRO ARCADE — 3 IN 1</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;user-select:none}
+html,body{background:#000;width:100%;height:100%;font-family:'Press Start 2P',monospace;overflow:hidden;color:#fff}
+#scanlines{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.12) 2px,rgba(0,0,0,0.12) 4px)}
+#crt{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9998;animation:flicker 0.15s infinite;opacity:0.02;background:#fff}
+@keyframes flicker{0%{opacity:0.02}50%{opacity:0.01}100%{opacity:0.02}}
+@keyframes blink{0%,70%{opacity:1}71%,100%{opacity:0}}
+@keyframes glow{0%{text-shadow:0 0 10px currentColor,0 0 20px currentColor}100%{text-shadow:0 0 15px currentColor,0 0 30px currentColor,0 0 50px currentColor}}
+@keyframes pulse{0%{box-shadow:0 0 8px currentColor}100%{box-shadow:0 0 20px currentColor,0 0 30px currentColor}}
+@keyframes scan{0%{top:0}100%{top:100%}}
+@keyframes twinkle{0%,100%{opacity:0.2}50%{opacity:0.8}}
+.screen{display:none;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;background:radial-gradient(ellipse at center,#0a0a1a 0%,#000 100%);position:absolute;top:0;left:0}
+.screen.active{display:flex}
+.menu-title{font-size:clamp(20px,5vw,48px);color:#ff6600;text-shadow:0 0 10px #ff6600,0 0 20px #ff3300,0 0 40px #ff3300;letter-spacing:4px;margin-bottom:8px;animation:glow 2s infinite alternate}
+.menu-sub{font-size:clamp(7px,1.5vw,12px);color:#00cc66;text-shadow:0 0 8px #00cc66;margin-bottom:25px;animation:blink 1.5s step-end infinite}
+.games{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;padding:0 20px;margin-bottom:20px}
+.game-card{width:180px;padding:18px 14px;border:3px solid;background:#0a0a0a;cursor:pointer;text-align:center;transition:all 0.2s;position:relative;overflow:hidden}
+.game-card:hover{transform:scale(1.05)}
+.game-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:2px;animation:scan 3s linear infinite}
+.card-checkers{border-color:#ff6600}.card-checkers::before{background:#ff6600}.card-checkers:hover{box-shadow:0 0 20px #ff6600,0 0 40px #ff3300 inset}
+.card-battleship{border-color:#00ccff}.card-battleship::before{background:#00ccff}.card-battleship:hover{box-shadow:0 0 20px #00ccff,0 0 40px #0066ff inset}
+.card-pong{border-color:#00ff66}.card-pong::before{background:#00ff66}.card-pong:hover{box-shadow:0 0 20px #00ff66,0 0 40px #009933 inset}
+.game-icon{font-size:42px;margin-bottom:8px}
+.game-name{font-size:11px;margin-bottom:5px}
+.game-desc{font-size:7px;opacity:0.7;line-height:1.6;color:#888}
+.card-checkers .game-name{color:#ff6600;text-shadow:0 0 5px #ff6600}
+.card-battleship .game-name{color:#00ccff;text-shadow:0 0 5px #00ccff}
+.card-pong .game-name{color:#00ff66;text-shadow:0 0 5px #00ff66}
+.select-text{font-size:clamp(6px,1.5vw,10px);color:#ffcc00;text-shadow:0 0 8px #ffcc00;animation:blink 1s step-end infinite}
+.high-score{font-size:8px;color:#ff6600;margin-bottom:5px}
+.star{position:absolute;width:2px;height:2px;background:#fff;animation:twinkle 3s infinite}
+.lobby{text-align:center;max-width:400px;padding:20px}
+.lobby-title{font-size:clamp(16px,4vw,28px);margin-bottom:15px}
+.inp{background:#0a0a0a;border:2px solid #ff6600;color:#ff6600;padding:10px;width:260px;font-family:inherit;font-size:10px;text-align:center;margin-bottom:10px;outline:none}
+.inp:focus{box-shadow:0 0 10px #ff6600}.inp::placeholder{color:#663300}
+.btn{background:#0a0a0a;border:2px solid #ff6600;color:#ff6600;padding:10px 20px;font-family:inherit;font-size:9px;cursor:pointer;transition:all 0.2s;width:260px;margin-bottom:8px}
+.btn:hover{background:#ff6600;color:#000;box-shadow:0 0 15px #ff6600}
+.btn-cyan{border-color:#00ccff;color:#00ccff}.btn-cyan:hover{background:#00ccff;color:#000;box-shadow:0 0 15px #00ccff}
+.btn-green{border-color:#00ff66;color:#00ff66}.btn-green:hover{background:#00ff66;color:#000;box-shadow:0 0 15px #00ff66}
+.btn-orange{border-color:#ff8800;color:#ff8800;background:#1a0a00}.btn-orange:hover{background:#ff8800;color:#000;box-shadow:0 0 15px #ff8800}
+.code-box{background:#0a0a0a;border:2px solid #ffcc00;padding:15px;margin:10px 0;cursor:pointer;width:260px}
+.code-val{font-size:20px;color:#ffcc00;text-shadow:0 0 10px #ffcc00;letter-spacing:6px;text-align:center}
+.code-label{font-size:7px;color:#998800;margin-top:5px;text-align:center}
+.back-link{font-size:8px;color:#888;cursor:pointer;margin-top:10px;text-decoration:underline}
+.or-sep{margin:10px 0;color:#555;font-size:8px}
+#checkers-game{padding:8px;overflow-y:auto;justify-content:flex-start}
+#score-bar{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:500px;padding:8px 12px;font-size:9px}
+.p1-score{color:#ffcc00;text-shadow:0 0 5px #ffcc00}.p2-score{color:#00ccff;text-shadow:0 0 5px #00ccff}
+#chk-turn-ind{font-size:8px;padding:4px 12px;margin-bottom:6px;text-align:center}
+.turn-yours{color:#00ff66;text-shadow:0 0 8px #00ff66;animation:blink 1s step-end infinite}.turn-wait{color:#ff3333}
+.turn-thinking{color:#ffcc00;text-shadow:0 0 8px #ffcc00;animation:blink 0.5s step-end infinite}
+#board-wrap{position:relative;border:3px solid #ff6600;box-shadow:0 0 20px rgba(255,102,0,0.3)}
+#board{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr)}
+.cell{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.cell-light{background:#1a0f05}.cell-dark{background:#3a2510}
+.piece{width:80%;height:80%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:clamp(8px,2.5vw,14px);font-weight:bold;transition:all 0.15s;cursor:pointer}
+.piece-white{background:#ffcc00;color:#000;box-shadow:0 0 8px #ffcc00;border:2px solid #cc9900}
+.piece-dark{background:#00ccff;color:#000;box-shadow:0 0 8px #00ccff;border:2px solid #0099cc}
+.piece.selected{animation:pulse 0.5s infinite alternate;transform:scale(1.1)}
+.piece-king::after{content:'K';font-size:clamp(6px,2vw,12px);font-weight:bold}
+.move-dot{width:30%;height:30%;border-radius:50%;background:#00ff66;opacity:0.7;animation:blink 0.8s step-end infinite}
+.capture-ring{width:70%;height:70%;border-radius:50%;border:3px solid #ff3333;opacity:0.8;animation:blink 0.5s step-end infinite}
+#battleship-game{padding:8px;overflow-y:auto;justify-content:flex-start}
+.bs-title{font-size:clamp(12px,3vw,20px);color:#00ccff;text-shadow:0 0 10px #00ccff;margin:5px 0}
+.phase-title{font-size:10px;color:#00ccff;text-shadow:0 0 5px #00ccff;margin:8px 0;text-align:center}
+.grid-wrap{margin:5px 0;position:relative}
+.grid-label{font-size:7px;color:#00ccff;text-align:center;margin-bottom:3px;text-shadow:0 0 3px #00ccff}
+.grid{display:grid;grid-template-columns:repeat(10,1fr);border:2px solid #0066aa;position:relative}
+.gcell{background:#0f2744;border:1px solid #0a1e38;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:clamp(6px,1.8vw,10px);transition:background 0.1s;position:relative}
+.gcell:hover{background:#1a3a5f}
+.gcell.ship{background:#14b8a6;border-color:#0d9488}
+.gcell.hit{background:#dc2626;border-color:#991b1b;color:#fff}
+.gcell.miss{background:#0f2744;border-color:#0a1e38;color:#888}
+.gcell.sunk{background:#991b1b;border-color:#7f1d1d}
+.gcell.preview-ok{background:rgba(20,184,166,0.3)}.gcell.preview-no{background:rgba(220,38,38,0.3)}
+.gcell.fire-target{cursor:crosshair}.gcell.fire-target:hover{background:#1a3a5f;box-shadow:inset 0 0 8px #ff3333}
+.ship-list{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:6px 0;font-size:7px}
+.ship-item{padding:4px 8px;border:1px solid #14b8a6;color:#14b8a6;cursor:pointer}
+.ship-item.active{background:#14b8a6;color:#000}.ship-item.placed{opacity:0.4;text-decoration:line-through}
+.controls{display:flex;gap:6px;justify-content:center;margin:6px 0;flex-wrap:wrap}
+.ctrl-btn{background:#0a0a0a;border:1px solid #00ccff;color:#00ccff;padding:6px 12px;cursor:pointer;font-family:inherit;font-size:7px;transition:all 0.15s}
+.ctrl-btn:hover{background:#00ccff;color:#000}
+.ctrl-btn.ready{border-color:#00ff66;color:#00ff66}.ctrl-btn.ready:hover{background:#00ff66;color:#000}
+.status{font-size:8px;color:#ffcc00;text-shadow:0 0 5px #ffcc00;text-align:center;margin:4px 0;min-height:20px}
+.turn-ind-bs{font-size:9px;padding:6px;text-align:center;margin:4px 0}
+#pong-game{justify-content:center}
+#score-display{display:flex;justify-content:center;gap:40px;font-size:clamp(16px,4vw,32px);margin-bottom:10px}
+.score-p1{color:#ff6600;text-shadow:0 0 8px #ff6600}.score-p2{color:#00ccff;text-shadow:0 0 8px #00ccff}
+#pong-canvas{border:2px solid #00ff66;box-shadow:0 0 20px rgba(0,255,102,0.3);background:#000}
+#game-info{font-size:8px;color:#00ff66;text-shadow:0 0 3px #00ff66;margin-top:8px;text-align:center}
+.chat-panel{width:100%;max-width:500px;margin-top:6px;display:flex;flex-direction:column}
+.chat-msgs{height:50px;overflow-y:auto;font-size:7px;padding:4px;background:#0a0a0a;border:1px solid #333;margin-bottom:4px}
+.chat-msgs div{margin:1px 0}.chat-p1{color:#ffcc00}.chat-p2{color:#00ccff}.chat-sys{color:#00ff66}
+.chat-row{display:flex;gap:4px}
+.chat-input{flex:1;background:#0a0a0a;border:1px solid #ff6600;color:#ff6600;padding:4px 8px;font-family:inherit;font-size:7px;outline:none}
+.chat-send{background:#0a0a0a;border:1px solid #ff6600;color:#ff6600;padding:4px 10px;cursor:pointer;font-family:inherit;font-size:7px}
+.chat-send:hover{background:#ff6600;color:#000}
+.game-over{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:100;flex-direction:column;align-items:center;justify-content:center}
+.go-title{font-size:clamp(20px,6vw,48px);margin-bottom:20px;animation:blink 1s step-end infinite}
+.go-win{color:#00ff66;text-shadow:0 0 20px #00ff66}.go-lose{color:#ff3333;text-shadow:0 0 20px #ff3333}
+.lang-btn{position:fixed;top:8px;right:8px;background:none;border:1px solid #ff6600;color:#ff6600;padding:4px 8px;cursor:pointer;font-family:inherit;font-size:7px;z-index:10}
+.conn{position:fixed;top:8px;left:8px;font-size:7px;z-index:10}.conn-ok{color:#00ff66}.conn-no{color:#ff3333}
+</style>
+</head>
+<body>
+<div id="scanlines"></div><div id="crt"></div>
+
+<div id="menu" class="screen active">
+  <div class="high-score" id="high-score"></div>
+  <div class="menu-title">RETRO ARCADE</div>
+  <div class="menu-sub" id="menu-sub">INSERT COIN TO PLAY</div>
+  <div class="games">
+    <div class="game-card card-checkers" onclick="showScreen('checkers-lobby')"><div class="game-icon">⚫⚪</div><div class="game-name" id="g-checkers">CHECKERS</div><div class="game-desc" id="gd-checkers">CLASSIC BOARD GAME<br>8x8 FIELD</div></div>
+    <div class="game-card card-battleship" onclick="showScreen('battleship-lobby')"><div class="game-icon">⚓</div><div class="game-name" id="g-battleship">BATTLESHIP</div><div class="game-desc" id="gd-battleship">NAVAL COMBAT<br>10x10 GRID</div></div>
+    <div class="game-card card-pong" onclick="showScreen('pong-lobby')"><div class="game-icon">🏓</div><div class="game-name" id="g-pong">PONG</div><div class="game-desc" id="gd-pong">THE ORIGINAL<br>1972 CLASSIC</div></div>
+  </div>
+  <div class="select-text" id="select-text">SELECT GAME</div>
+</div>
+
+<div id="checkers-lobby" class="screen"><div class="lobby">
+  <div class="lobby-title" style="color:#ff6600;text-shadow:0 0 10px #ff6600">⚫⚪ <span id="t-chk-title">CHECKERS</span></div>
+  <div class="menu-sub">INSERT COIN</div>
+  <input class="inp" id="chk-name" placeholder="YOUR NAME..." maxlength="12" autocomplete="off">
+  <button class="btn btn-orange" id="chk-btn-ai" onclick="chkStartAI()">VS COMPUTER</button>
+  <button class="btn" id="chk-btn-create" onclick="chkCreateRoom()">VS PLAYER</button>
+  <div class="code-box" id="chk-code-box" style="display:none" onclick="chkCopyCode()"><div class="code-val" id="chk-room-code">------</div><div class="code-label" id="chk-t-copied">CLICK TO COPY</div></div>
+  <div id="chk-waiting" style="display:none;font-size:10px;color:#00ccff;animation:blink 1s step-end infinite;margin-top:10px">WAITING...</div>
+  <div class="or-sep">—— OR JOIN ——</div>
+  <input class="inp" id="chk-join" placeholder="ROOM CODE..." maxlength="6" autocomplete="off" style="text-transform:uppercase">
+  <button class="btn btn-cyan" onclick="chkJoinRoom()">JOIN ROOM</button>
+  <div class="back-link" onclick="showScreen('menu')">← ARCADE</div>
+</div></div>
+
+<div id="checkers-game" class="screen">
+  <div id="score-bar"><span class="p1-score" id="chk-p1-info">P1: 12</span><span id="chk-turn-ind"></span><span class="p2-score" id="chk-p2-info">P2: 12</span></div>
+  <div id="board-wrap"><div id="board"></div></div>
+  <div class="chat-panel" id="chk-chat-panel"><div class="chat-msgs" id="chk-chat-msgs"></div><div class="chat-row"><input class="chat-input" id="chk-chat-input" placeholder="MSG..." maxlength="50" autocomplete="off"><button class="chat-send" onclick="chkSendChat()">SEND</button></div></div>
+</div>
+
+<div id="battleship-lobby" class="screen"><div class="lobby">
+  <div class="lobby-title" style="color:#00ccff;text-shadow:0 0 10px #00ccff">⚓ <span id="t-bs-title">BATTLESHIP</span></div>
+  <div class="menu-sub">INSERT COIN</div>
+  <input class="inp" id="bs-name" placeholder="YOUR NAME..." maxlength="12" autocomplete="off" style="border-color:#00ccff;color:#00ccff">
+  <button class="btn btn-orange" style="border-color:#ff8800;color:#ff8800" onclick="bsStartAI()">VS COMPUTER</button>
+  <button class="btn" style="border-color:#00ccff;color:#00ccff" onclick="bsCreateRoom()">VS PLAYER</button>
+  <div class="code-box" id="bs-code-box" style="display:none" onclick="bsCopyCode()"><div class="code-val" id="bs-room-code">------</div><div class="code-label" id="bs-t-copied">CLICK TO COPY</div></div>
+  <div id="bs-waiting" style="display:none;font-size:10px;color:#00ccff;animation:blink 1s step-end infinite;margin-top:10px">WAITING...</div>
+  <div class="or-sep">—— OR JOIN ——</div>
+  <input class="inp" id="bs-join" placeholder="ROOM CODE..." maxlength="6" autocomplete="off" style="text-transform:uppercase;border-color:#00ccff;color:#00ccff">
+  <button class="btn btn-cyan" onclick="bsJoinRoom()">JOIN ROOM</button>
+  <div class="back-link" onclick="showScreen('menu')">← ARCADE</div>
+</div></div>
+
+<div id="battleship-game" class="screen">
+  <div class="bs-title">⚓ BATTLESHIP</div>
+  <div class="phase-title" id="bs-phase">PLACE YOUR SHIPS</div>
+  <div id="bs-ship-list" class="ship-list"></div>
+  <div class="controls" id="bs-place-controls"><button class="ctrl-btn" onclick="bsToggleRotate()">ROTATE</button><button class="ctrl-btn" onclick="bsAutoPlace()">AUTO</button><button class="ctrl-btn" onclick="bsClearShips()">CLEAR</button><button class="ctrl-btn ready" onclick="bsSetReady()">READY!</button></div>
+  <div class="status" id="bs-status"></div>
+  <div id="bs-grids" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><div class="grid-wrap"><div class="grid-label" id="bs-my-label">YOUR SHIPS</div><div class="grid" id="bs-my-grid"></div></div><div class="grid-wrap"><div class="grid-label" id="bs-enemy-label">ENEMY WATERS</div><div class="grid" id="bs-enemy-grid"></div></div></div>
+  <div class="turn-ind-bs" id="bs-turn-ind"></div>
+  <div class="chat-panel" id="bs-chat-panel"><div class="chat-msgs" id="bs-chat-msgs"></div><div class="chat-row"><input class="chat-input" id="bs-chat-input" placeholder="MSG..." maxlength="50" autocomplete="off"><button class="chat-send" onclick="bsSendChat()">SEND</button></div></div>
+</div>
+
+<div id="pong-lobby" class="screen"><div class="lobby">
+  <div class="lobby-title" style="color:#00ff66;text-shadow:0 0 10px #00ff66">🏓 <span id="t-pong-title">PONG</span></div>
+  <div class="menu-sub">INSERT COIN</div>
+  <input class="inp" id="pong-name" placeholder="YOUR NAME..." maxlength="12" autocomplete="off" style="border-color:#00ff66;color:#00ff66">
+  <button class="btn btn-orange" style="border-color:#ff8800;color:#ff8800" onclick="pongStartAI()">VS COMPUTER</button>
+  <button class="btn" style="border-color:#00ff66;color:#00ff66" onclick="pongCreateRoom()">VS PLAYER</button>
+  <div class="code-box" id="pong-code-box" style="display:none" onclick="pongCopyCode()"><div class="code-val" id="pong-room-code">------</div><div class="code-label" id="pong-t-copied">CLICK TO COPY</div></div>
+  <div id="pong-waiting" style="display:none;font-size:10px;color:#00ccff;animation:blink 1s step-end infinite;margin-top:10px">WAITING...</div>
+  <div class="or-sep">—— OR JOIN ——</div>
+  <input class="inp" id="pong-join" placeholder="ROOM CODE..." maxlength="6" autocomplete="off" style="text-transform:uppercase;border-color:#00ff66;color:#00ff66">
+  <button class="btn btn-green" onclick="pongJoinRoom()">JOIN ROOM</button>
+  <div class="back-link" onclick="showScreen('menu')">← ARCADE</div>
+</div></div>
+
+<div id="pong-game" class="screen">
+  <div id="score-display"><span class="score-p1" id="pong-s1">0</span><span style="color:#333">:</span><span class="score-p2" id="pong-s2">0</span></div>
+  <canvas id="pong-canvas"></canvas>
+  <div id="game-info">MOUSE / TOUCH TO MOVE PADDLE</div>
+</div>
+
+<div class="game-over" id="game-over"><div class="go-title" id="go-title"></div><button class="btn btn-green" onclick="backToMenu()" style="width:200px">PLAY AGAIN</button></div>
+
+<button class="lang-btn" id="lang-btn" onclick="toggleLang()">🇷🇺 RU</button>
+<div class="conn" id="conn">● OFFLINE</div>
+
+<script>
+const T_RU={"CHECKERS":"ШАШКИ","BATTLESHIP":"МОРСКОЙ БОЙ","PONG":"ПОНГ","CLASSIC BOARD GAME":"КЛАССИЧЕСКАЯ ИГРА","8x8 FIELD":"ПОЛЕ 8x8","NAVAL COMBAT":"МОРСКОЙ БОЙ","10x10 GRID":"СЕТКА 10x10","THE ORIGINAL":"ОРИГИНАЛЬНАЯ","1972 CLASSIC":"КЛАССИКА 1972","INSERT COIN":"ВСТАВЬТЕ МОНЕТУ","INSERT COIN TO PLAY":"ВСТАВЬТЕ МОНЕТУ","SELECT GAME":"ВЫБЕРИ ИГРУ","YOUR NAME...":"ВАШЕ ИМЯ...","CREATE ROOM":"СОЗДАТЬ КОМНАТУ","CLICK TO COPY":"НАЖМИТЕ ДЛЯ КОПИИ","WAITING...":"ОЖИДАНИЕ...","ROOM CODE...":"КОД КОМНАТЫ...","JOIN ROOM":"ВОЙТИ","COPIED!":"СКОПИРОВАНО!","YOU WIN!":"ВЫ ПОБЕДИЛИ!","YOU LOSE!":"ВЫ ПРОИГРАЛИ!","PLAY AGAIN":"ИГРАТЬ СНОВА","MSG...":"СООБЩ...","SEND":"ОТПР","YOUR TURN":"ВАШ ХОД","OPPONENT'S TURN":"ХОД СОПЕРНИКА","PLACE YOUR SHIPS":"РАСТАВЬТЕ КОРАБЛИ","YOUR SHIPS":"ВАШИ КОРАБЛИ","ENEMY WATERS":"ВОДЫ ПРОТИВНИКА","ROTATE":"ПОВЕРНУТЬ","AUTO":"АВТО","CLEAR":"ОЧИСТИТЬ","READY!":"ГОТОВ!","YOUR TURN — FIRE!":"ВАШ ХОД — СТРЕЛЯЙТЕ!","HIT!":"ПОПАЛ!","MISS":"ПРОМАХ","SUNK!":"ПОТОПЛЕН!","Ship":"Корабль","MOUSE / TOUCH TO MOVE PADDLE":"МЫШЬ / ТАЧНИТЕ ДЛЯ ДВИЖЕНИЯ","VS COMPUTER":"ПРОТИВ КОМПЬЮТЕРА","VS PLAYER":"ПО СЕТИ","COMPUTER":"КОМПЬЮТЕР","THINKING...":"ДУМАЮ..."};
+let lang=localStorage.getItem('arcade_lang')||'en';
+function t(s){return lang==='ru'&&T_RU[s]?T_RU[s]:s}
+function toggleLang(){lang=lang==='en'?'ru':'en';localStorage.setItem('arcade_lang',lang);updateAllLang()}
+function updateAllLang(){
+  document.getElementById('lang-btn').textContent=lang==='en'?'🇷🇺 RU':'🇬🇧 EN';
+  document.getElementById('menu-sub').textContent=t('INSERT COIN TO PLAY');
+  document.getElementById('select-text').textContent=t('SELECT GAME');
+  document.getElementById('g-checkers').textContent=t('CHECKERS');document.getElementById('g-battleship').textContent=t('BATTLESHIP');document.getElementById('g-pong').textContent=t('PONG');
+  document.getElementById('gd-checkers').innerHTML=t('CLASSIC BOARD GAME')+'<br>'+t('8x8 FIELD');
+  document.getElementById('gd-battleship').innerHTML=t('NAVAL COMBAT')+'<br>'+t('10x10 GRID');
+  document.getElementById('gd-pong').innerHTML=t('THE ORIGINAL')+'<br>'+t('1972 CLASSIC');
+  document.getElementById('t-chk-title').textContent=t('CHECKERS');document.getElementById('chk-name').placeholder=t('YOUR NAME...');document.getElementById('chk-join').placeholder=t('ROOM CODE...');
+  document.getElementById('chk-btn-ai').textContent=t('VS COMPUTER');document.getElementById('chk-btn-create').textContent=t('VS PLAYER');
+  document.getElementById('t-bs-title').textContent=t('BATTLESHIP');document.getElementById('bs-name').placeholder=t('YOUR NAME...');document.getElementById('bs-join').placeholder=t('ROOM CODE...');
+  document.getElementById('t-pong-title').textContent=t('PONG');document.getElementById('pong-name').placeholder=t('YOUR NAME...');document.getElementById('pong-join').placeholder=t('ROOM CODE...');
+  document.getElementById('game-info').textContent=t('MOUSE / TOUCH TO MOVE PADDLE');
+  // Update VS COMPUTER / VS PLAYER buttons for battleship and pong lobbies
+  document.querySelectorAll('.btn-orange').forEach(b=>{if(b.id!=='chk-btn-ai')b.textContent=t('VS COMPUTER')});
+  const bsVPBtn=document.querySelector('#battleship-lobby .btn:not(.btn-orange):not(.btn-cyan)');
+  if(bsVPBtn)bsVPBtn.textContent=t('VS PLAYER');
+  const pongVPBtn=document.querySelector('#pong-lobby .btn:not(.btn-orange):not(.btn-green)');
+  if(pongVPBtn)pongVPBtn.textContent=t('VS PLAYER');
+}
+let currentScreen='menu';
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');currentScreen=id}
+
+const firebaseConfig={apiKey:"AIzaSyA8SLf0EwE6lolFciDt6cQK8U3LJm4YLLw",authDomain:"scrap-game.firebaseapp.com",databaseURL:"https://scrap-game-default-rtdb.europe-west1.firebasedatabase.app",projectId:"scrap-game",storageBucket:"scrap-game.firebasestorage.app",messagingSenderId:"554589841261",appId:"1:554589841261:web:db3d45ddbb52fcc3cd5c64"};
+let db,fbInited=false;
+function initFB(){if(fbInited)return;firebase.initializeApp(firebaseConfig);db=firebase.database();fbInited=true}
+function genCode(){const ch='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<6;i++)s+=ch[Math.floor(Math.random()*ch.length)];return s}
+
+const audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+function beep(f,d,v=0.1){try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d/1000)}catch(e){}}
+function sndWin(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,100,0.15),i*100))}
+function sndLose(){[784,659,523,392].forEach((f,i)=>setTimeout(()=>beep(f,100,0.1),i*120))}
+function sndClick(){beep(1000,20,0.05)}
+function setConn(ok){const el=document.getElementById('conn');el.className='conn '+(ok?'conn-ok':'conn-no');el.textContent=ok?'● ONLINE':'● OFFLINE'}
+function showGameOver(win){const goEl=document.getElementById('game-over');const goTitle=document.getElementById('go-title');if(win){goTitle.textContent=t('YOU WIN!');goTitle.className='go-title go-win';sndWin();const w=parseInt(localStorage.getItem('arcade_wins')||'0')+1;localStorage.setItem('arcade_wins',w)}else{goTitle.textContent=t('YOU LOSE!');goTitle.className='go-title go-lose';sndLose()}goEl.style.display='flex'}
+function backToMenu(){document.getElementById('game-over').style.display='none';chkCleanup();bsCleanup();pongCleanup();showScreen('menu');setConn(false);updateHighScore()}
+function updateHighScore(){const hs=localStorage.getItem('arcade_wins')||'0';document.getElementById('high-score').textContent='WINS: '+hs}
+(function(){const menu=document.getElementById('menu');for(let i=0;i<40;i++){const s=document.createElement('div');s.className='star';s.style.left=Math.random()*100+'%';s.style.top=Math.random()*100+'%';s.style.animationDelay=Math.random()*3+'s';s.style.animationDuration=(2+Math.random()*3)+'s';menu.appendChild(s)}})();
+
+// ===== CHECKERS =====
+let chkRef=null,chkPlayer=0,chkName='',chkRoomId='',chkActive=false,chkBoard=[],chkSelected=null,chkValidMoves=[],chkMyTurn=false,chkP2Name='P2';
+let chkGameMode='online'; // 'online' or 'ai'
+let chkAITimer=null;
+
+function chkInitBoard(){chkBoard=Array(8).fill(null).map(()=>Array(8).fill(0));for(let r=0;r<3;r++)for(let c=0;c<8;c++)if((r+c)%2===1)chkBoard[r][c]=2;for(let r=5;r<8;r++)for(let c=0;c<8;c++)if((r+c)%2===1)chkBoard[r][c]=1}
+function chkCount(p){let n=0;for(let r=0;r<8;r++)for(let c=0;c<8;c++){const v=chkBoard[r][c];if(p===1&&(v===1||v===3))n++;if(p===2&&(v===2||v===4))n++}return n}
+function chkIsKing(v){return v===3||v===4}function chkIsWhite(v){return v===1||v===3}function chkIsDark(v){return v===2||v===4}
+function chkIsOwn(v){return chkPlayer===1?chkIsWhite(v):chkIsDark(v)}function chkIsEnemy(v){return chkPlayer===1?chkIsDark(v):chkIsWhite(v)}
+// AI versions: AI is always player 2 (dark), so AI owns dark pieces
+function chkAIOwn(v){return chkIsDark(v)}function chkAIOEnemy(v){return chkIsWhite(v)}
+function chkGetMovesFor(r,c,isAI){const v=chkBoard[r][c];if(!v)return{moves:[],captures:[]};const king=chkIsKing(v),white=chkIsWhite(v);const isOwn=isAI?chkAIOwn(v):chkIsOwn(v);if(!isOwn)return{moves:[],captures:[]};const dirs=king?[[-1,-1],[-1,1],[1,-1],[1,1]]:white?[[-1,-1],[-1,1]]:[[1,-1],[1,1]];const capDirs=[[-1,-1],[-1,1],[1,-1],[1,1]];const moves=[],captures=[];const isEnemyFn=isAI?chkAIOEnemy:chkIsEnemy;for(const[dr,dc] of capDirs){const mr=r+dr,mc=c+dc,jr=r+2*dr,jc=c+2*dc;if(jr>=0&&jr<8&&jc>=0&&jc<8&&isEnemyFn(chkBoard[mr][mc])&&chkBoard[jr][jc]===0)captures.push({r:jr,c:jc,cr:mr,cc:mc});if(king){let kr=r+dr,kc=c+dc;while(kr>=0&&kr<8&&kc>=0&&kc<8){if(isEnemyFn(chkBoard[kr][kc])){let lr=kr+dr,lc=kc+dc;while(lr>=0&&lr<8&&lc>=0&&lc<8&&chkBoard[lr][lc]===0){captures.push({r:lr,c:lc,cr:kr,cc:kc});lr+=dr;lc+=dc}break}if(chkBoard[kr][kc]!==0)break;kr+=dr;kc+=dc}}}if(captures.length===0){for(const[dr,dc] of dirs){if(king){let mr=r+dr,mc=c+dc;while(mr>=0&&mr<8&&mc>=0&&mc<8&&chkBoard[mr][mc]===0){moves.push({r:mr,c:mc,cr:-1,cc:-1});mr+=dr;mc+=dc}if(mr>=0&&mr<8&&mc>=0&&mc<8)break}else{const mr=r+dr,mc=c+dc;if(mr>=0&&mr<8&&mc>=0&&mc<8&&chkBoard[mr][mc]===0)moves.push({r:mr,c:mc,cr:-1,cc:-1})}}}return{moves,captures}}
+function chkGetMoves(r,c){return chkGetMovesFor(r,c,false)}
+function chkAIHasCapture(){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(chkAIOwn(chkBoard[r][c])&&chkGetMovesFor(r,c,true).captures.length>0)return true;return false}
+function chkHasCapture(){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(chkIsOwn(chkBoard[r][c])&&chkGetMoves(r,c).captures.length>0)return true;return false}
+function chkCalcSize(){const s=Math.min(window.innerWidth-20,window.innerHeight-160,500);return Math.floor(s/8)*8}
+function chkRender(){const sz=chkCalcSize(),csz=sz/8;const bEl=document.getElementById('board');bEl.style.width=sz+'px';bEl.style.height=sz+'px';bEl.innerHTML='';const flipped=chkPlayer===2;for(let ri=0;ri<8;ri++)for(let ci=0;ci<8;ci++){const r=flipped?7-ri:ri,c=flipped?7-ci:ci;const cell=document.createElement('div');cell.className='cell '+((r+c)%2===0?'cell-light':'cell-dark');cell.style.width=csz+'px';cell.style.height=csz+'px';const v=chkBoard[r][c];if(v>0){const p=document.createElement('div');p.className='piece '+(chkIsWhite(v)?'piece-white':'piece-dark')+(chkIsKing(v)?' piece-king':'');if(chkSelected&&chkSelected.r===r&&chkSelected.c===c)p.classList.add('selected');cell.appendChild(p)}const vm=chkValidMoves.find(m=>m.r===r&&m.c===c);if(vm){const el=document.createElement('div');el.className=vm.cr>=0?'capture-ring':'move-dot';cell.appendChild(el)}cell.onclick=()=>chkCellClick(r,c);bEl.appendChild(cell)}document.getElementById('chk-p1-info').textContent=(chkPlayer===1?'►':'')+chkName+': '+chkCount(1);document.getElementById('chk-p2-info').textContent=chkP2Name+': '+chkCount(2)+(chkPlayer===2?'◄':'');const ti=document.getElementById('chk-turn-ind');if(chkMyTurn){ti.textContent='► '+t('YOUR TURN')+' ◄';ti.className='turn-yours'}else if(chkGameMode==='ai'){ti.textContent=t('THINKING...');ti.className='turn-thinking'}else{ti.textContent=t("OPPONENT'S TURN");ti.className='turn-wait'}}
+
+// ===== CHECKERS AI =====
+function chkAIMove(){
+  if(!chkActive||chkMyTurn||chkGameMode!=='ai')return;
+  // Collect all AI pieces with their moves
+  const allCaptures=[], allMoves=[];
+  const hasCap=chkAIHasCapture();
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    if(!chkAIOwn(chkBoard[r][c]))continue;
+    const{moves,captures}=chkGetMovesFor(r,c,true);
+    if(captures.length>0)allCaptures.push({r,c,captures});
+    if(moves.length>0)allMoves.push({r,c,moves});
+  }
+  let chosen=null;
+  if(hasCap&&allCaptures.length>0){
+    // Mandatory capture: pick random capture
+    const src=allCaptures[Math.floor(Math.random()*allCaptures.length)];
+    const cap=src.captures[Math.floor(Math.random()*src.captures.length)];
+    chosen={sr:src.r,sc:src.c,tr:cap.r,tc:cap.c,cr:cap.cr,cc:cap.cc};
+  }else if(allMoves.length>0){
+    // Pick move with preference for king moves and advancing toward king row
+    // Score each move
+    let bestScore=-Infinity,bestMoves=[];
+    for(const src of allMoves){
+      for(const mv of src.moves){
+        let score=0;
+        const piece=chkBoard[src.r][src.c];
+        // Prefer king moves
+        if(chkIsKing(piece))score+=10;
+        // Prefer advancing toward row 7 (king row for dark)
+        score+=(mv.r-src.r)*2;
+        // Add small random
+        score+=Math.random()*3;
+        if(score>bestScore){bestScore=score;bestMoves=[{sr:src.r,sc:src.c,tr:mv.r,tc:mv.c,cr:-1,cc:-1}]}
+        else if(score===bestScore)bestMoves.push({sr:src.r,sc:src.c,tr:mv.r,tc:mv.c,cr:-1,cc:-1});
+      }
+    }
+    chosen=bestMoves[Math.floor(Math.random()*bestMoves.length)];
+  }
+  if(!chosen)return; // No moves = AI loses
+  // Execute AI move
+  const piece=chkBoard[chosen.sr][chosen.sc];
+  chkBoard[chosen.sr][chosen.sc]=0;
+  chkBoard[chosen.tr][chosen.tc]=piece;
+  if(chosen.cr>=0){chkBoard[chosen.cr][chosen.cc]=0;beep(880,50);setTimeout(()=>beep(440,50),50)}
+  else{beep(440,50)}
+  // Check king promotion (dark pieces promote at row 7)
+  if(!chkIsKing(piece)&&chkIsDark(piece)&&chosen.tr===7){chkBoard[chosen.tr][chosen.tc]=4;beep(523,60);setTimeout(()=>beep(659,60),60);setTimeout(()=>beep(784,80),120)}
+  // Check multi-jump
+  if(chosen.cr>=0){
+    const{captures:more}=chkGetMovesFor(chosen.tr,chosen.tc,true);
+    if(more.length>0){
+      // Continue multi-jump after delay
+      chkRender();
+      chkAITimer=setTimeout(()=>{chkSelected={r:chosen.tr,c:chosen.tc};chkAIContinueJump(more)},400);
+      return;
+    }
+  }
+  // Switch turn to player
+  chkMyTurn=true;
+  chkSelected=null;chkValidMoves=[];
+  chkRender();
+  chkCheckWinAI();
+}
+function chkAIContinueJump(captures){
+  if(!chkActive||chkGameMode!=='ai')return;
+  const cap=captures[Math.floor(Math.random()*captures.length)];
+  const sr=chkSelected.r,sc=chkSelected.c;
+  const piece=chkBoard[sr][sc];
+  chkBoard[sr][sc]=0;
+  chkBoard[cap.r][cap.c]=piece;
+  chkBoard[cap.cr][cap.cc]=0;
+  beep(880,50);setTimeout(()=>beep(440,50),50);
+  if(!chkIsKing(piece)&&chkIsDark(piece)&&cap.r===7){chkBoard[cap.r][cap.c]=4;beep(523,60);setTimeout(()=>beep(659,60),60);setTimeout(()=>beep(784,80),120)}
+  const{captures:more}=chkGetMovesFor(cap.r,cap.c,true);
+  if(more.length>0){
+    chkSelected={r:cap.r,c:cap.c};
+    chkRender();
+    chkAITimer=setTimeout(()=>chkAIContinueJump(more),400);
+    return;
+  }
+  chkMyTurn=true;chkSelected=null;chkValidMoves=[];
+  chkRender();chkCheckWinAI();
+}
+function chkCheckWinAI(){
+  const wc=chkCount(1),dc=chkCount(2);
+  if(wc===0){chkActive=false;showGameOver(false)}
+  else if(dc===0){chkActive=false;showGameOver(true)}
+  else{
+    // Check if current player has any moves
+    if(chkMyTurn){
+      let hasMoves=false;
+      for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+        if(chkIsOwn(chkBoard[r][c])){
+          const m=chkGetMoves(r,c);if(m.moves.length>0||m.captures.length>0){hasMoves=true;break}
+        }
+        if(hasMoves)break;
+      }
+      if(!hasMoves){chkActive=false;showGameOver(false)}
+    }else{
+      let hasMoves=false;
+      for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+        if(chkAIOwn(chkBoard[r][c])){
+          const m=chkGetMovesFor(r,c,true);if(m.moves.length>0||m.captures.length>0){hasMoves=true;break}
+        }
+        if(hasMoves)break;
+      }
+      if(!hasMoves){chkActive=false;showGameOver(true)}
+    }
+  }
+}
+
+function chkCellClick(r,c){if(!chkActive||!chkMyTurn)return;const v=chkBoard[r][c];if(chkIsOwn(v)){const{moves,captures}=chkGetMoves(r,c);if(chkHasCapture()&&captures.length===0)return;chkSelected={r,c};chkValidMoves=chkHasCapture()?captures:moves;sndClick();chkRender();return}if(!chkSelected)return;const target=chkValidMoves.find(m=>m.r===r&&m.c===c);if(!target)return;const sr=chkSelected.r,sc=chkSelected.c;const piece=chkBoard[sr][sc];chkBoard[sr][sc]=0;chkBoard[r][c]=piece;let captured=false;if(target.cr>=0){chkBoard[target.cr][target.cc]=0;captured=true;beep(880,50);setTimeout(()=>beep(440,50),50)}else{beep(440,50)}const white=chkIsWhite(piece);if(!chkIsKing(piece)&&((white&&r===0)||(!white&&r===7))){chkBoard[r][c]=white?3:4;beep(523,60);setTimeout(()=>beep(659,60),60);setTimeout(()=>beep(784,80),120)}if(captured){const{captures:more}=chkGetMoves(r,c);if(more.length>0){chkSelected={r,c};chkValidMoves=more;chkRender();if(chkGameMode==='ai')chkPushBoardAI(false);else chkPushBoard(false);return}}chkSelected=null;chkValidMoves=[];chkMyTurn=false;chkRender();if(chkGameMode==='ai'){chkPushBoardAI(true)}else{chkPushBoard(true)}}
+function chkPushBoardAI(switchTurn){
+  if(switchTurn){
+    // Check win first
+    const wc=chkCount(1),dc=chkCount(2);
+    if(wc===0){chkActive=false;showGameOver(false);return}
+    if(dc===0){chkActive=false;showGameOver(true);return}
+    // Schedule AI move after 500ms
+    chkAITimer=setTimeout(()=>chkAIMove(),500);
+  }
+}
+function chkPushBoard(switchTurn){if(!chkRef)return;const upd={board:chkBoard.map(r=>[...r])};if(switchTurn)upd.turn=chkPlayer===1?2:1;chkRef.update(upd)}
+
+function chkStartAI(){
+  chkName=document.getElementById('chk-name').value.trim()||'PLAYER';
+  chkPlayer=1;chkGameMode='ai';chkP2Name=t('COMPUTER');
+  chkInitBoard();chkActive=true;chkMyTurn=true;chkSelected=null;chkValidMoves=[];
+  showScreen('checkers-game');setConn(false);
+  // Hide chat in AI mode
+  document.getElementById('chk-chat-panel').style.display='none';
+  chkRender();
+}
+function chkCreateRoom(){const name=document.getElementById('chk-name').value.trim();if(!name){document.getElementById('chk-name').style.borderColor='#ff3333';return}chkName=name;chkPlayer=1;chkGameMode='online';initFB();chkInitBoard();chkRoomId=genCode();chkRef=db.ref('checkers/'+chkRoomId);chkRef.set({p1:name,p2:'',status:'waiting',board:chkBoard.map(r=>[...r]),turn:1,winner:null,chat:[],ts:firebase.database.ServerValue.TIMESTAMP});document.getElementById('chk-code-box').style.display='block';document.getElementById('chk-room-code').textContent=chkRoomId;document.getElementById('chk-waiting').style.display='block';document.getElementById('chk-btn-create').style.display='none';document.getElementById('chk-btn-ai').style.display='none';chkRef.child('p2').on('value',snap=>{if(snap.val()&&currentScreen==='checkers-lobby')chkStartGame()})}
+function chkJoinRoom(){const name=document.getElementById('chk-name').value.trim();const code=document.getElementById('chk-join').value.trim().toUpperCase();if(!name){document.getElementById('chk-name').style.borderColor='#ff3333';return}if(!code||code.length<4){document.getElementById('chk-join').style.borderColor='#ff3333';return}chkName=name;chkPlayer=2;chkGameMode='online';initFB();chkRoomId=code;chkRef=db.ref('checkers/'+chkRoomId);chkRef.once('value').then(snap=>{const d=snap.val();if(!d||d.status!=='waiting'||d.p2)return;chkRef.update({p2:name,status:'playing'});if(d.board)chkBoard=d.board.map(r=>[...r]);else chkInitBoard();chkStartGame()})}
+function chkStartGame(){chkActive=true;chkGameMode='online';showScreen('checkers-game');setConn(true);document.getElementById('chk-chat-panel').style.display='';chkRef.child('board').on('value',snap=>{const b=snap.val();if(b){chkBoard=b.map(r=>[...r]);chkRender();chkCheckWin()}});chkRef.child('turn').on('value',snap=>{chkMyTurn=snap.val()===chkPlayer;chkRender()});chkRef.child('winner').on('value',snap=>{const w=snap.val();if(w){chkActive=false;showGameOver(w===chkPlayer)}});chkRef.child('p2').on('value',snap=>{chkP2Name=snap.val()||'P2';chkRender()});chkRef.child('chat').limitToLast(20).on('value',snap=>{const msgs=snap.val(),el=document.getElementById('chk-chat-msgs');el.innerHTML='';if(msgs)Object.values(msgs).forEach(m=>{const d=document.createElement('div');d.className=m.from===chkName?'chat-p1':'chat-p2';d.textContent=m.from+': '+m.text;el.appendChild(d)});el.scrollTop=el.scrollHeight});chkRender()}
+function chkCheckWin(){const wc=chkCount(1),dc=chkCount(2);if(wc===0)chkRef.update({winner:2,status:'finished'});else if(dc===0)chkRef.update({winner:1,status:'finished'})}
+function chkCopyCode(){navigator.clipboard.writeText(chkRoomId).then(()=>{document.getElementById('chk-t-copied').textContent=t('COPIED!');setTimeout(()=>document.getElementById('chk-t-copied').textContent=t('CLICK TO COPY'),1500)})}
+function chkSendChat(){const inp=document.getElementById('chk-chat-input');const text=inp.value.trim();if(!text)return;inp.value='';if(chkRef)chkRef.child('chat').push({from:chkName,text,time:Date.now()})}
+function chkCleanup(){if(chkAITimer){clearTimeout(chkAITimer);chkAITimer=null}if(chkRef){chkRef.off();chkRef.remove();chkRef=null}chkActive=false;chkSelected=null;chkValidMoves=[];chkGameMode='online';document.getElementById('chk-code-box').style.display='none';document.getElementById('chk-waiting').style.display='none';document.getElementById('chk-btn-create').style.display='';document.getElementById('chk-btn-ai').style.display='';document.getElementById('chk-chat-panel').style.display=''}
+document.getElementById('chk-chat-input').addEventListener('keydown',e=>{if(e.key==='Enter')chkSendChat()});
+
+// ===== BATTLESHIP =====
+let bsRef=null,bsPlayer=0,bsName='',bsRoomId='',bsPhase='lobby';
+let bsGameMode='online'; // 'online' or 'ai'
+let bsAITimer=null;
+let bsAIShips=[]; // AI's ship placements
+let bsAIHits=[]; // stack of hit cells for target mode
+let bsAIVisited=new Set(); // cells AI has shot at
+const BS_SHIPS=[4,3,3,2,2,2,1,1,1,1];
+let bsMyShips=[],bsEnemyShips=[],bsMyShots={},bsEnemyShots={},bsCurShip=0,bsHoriz=true,bsMyReady=false,bsEnemyReady=false,bsMyTurn=false;
+function bsCanPlace(grid,size,r,c,hz){for(let i=0;i<size;i++){const cr=hz?r:r+i,cc=hz?c+i:c;if(cr>=10||cc>=10)return false;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){const nr=cr+dr,nc=cc+dc;if(nr>=0&&nr<10&&nc>=0&&nc<10&&grid[nr][nc])return false}}return true}
+function bsPlaceShip(grid,ships,size,r,c,hz){const cells=[];for(let i=0;i<size;i++){const cr=hz?r:r+i,cc=hz?c+i:c;grid[cr][cc]=1;cells.push([cr,cc])}ships.push({size,r,c,hz,cells,hit:0,sunk:false})}
+function bsAutoPlace(){const grid=Array(10).fill(null).map(()=>Array(10).fill(0));const ships=[];for(const size of BS_SHIPS){let placed=false,att=0;while(!placed&&att<200){att++;const hz=Math.random()>0.5;const r=Math.floor(Math.random()*10),c=Math.floor(Math.random()*10);if(bsCanPlace(grid,ships,size,r,c,hz)){bsPlaceShip(grid,ships,size,r,c,hz);placed=true}}bsMyShips=ships}bsMyShips=ships;bsCurShip=BS_SHIPS.length;bsRenderMy();bsRenderList()}
+function bsAutoPlaceAI(){const grid=Array(10).fill(null).map(()=>Array(10).fill(0));const ships=[];for(const size of BS_SHIPS){let placed=false,att=0;while(!placed&&att<200){att++;const hz=Math.random()>0.5;const r=Math.floor(Math.random()*10),c=Math.floor(Math.random()*10);if(bsCanPlace(grid,ships,size,r,c,hz)){bsPlaceShip(grid,ships,size,r,c,hz);placed=true}}}return ships}
+function bsClearShips(){bsMyShips=[];bsCurShip=0;bsRenderMy();bsRenderList()}
+function bsToggleRotate(){bsHoriz=!bsHoriz;sndClick()}
+function bsCalcCell(){return Math.floor(Math.min(window.innerWidth-30,300)/10)}
+function bsRenderMy(){const csz=bsCalcCell();const el=document.getElementById('bs-my-grid');el.style.gridTemplateColumns=`repeat(10,${csz}px)`;el.innerHTML='';const g=Array(10).fill(null).map(()=>Array(10).fill(0));for(const s of bsMyShips)for(const[r,c] of s.cells)g[r][c]=1;for(const key in bsEnemyShots){const[r,c]=key.split(',').map(Number);g[r][c]=bsEnemyShots[key]?2:3}for(const s of bsMyShips)if(s.sunk)for(const[r,c] of s.cells)g[r][c]=4;for(let r=0;r<10;r++)for(let c=0;c<10;c++){const cell=document.createElement('div');cell.className='gcell';cell.style.width=csz+'px';cell.style.height=csz+'px';if(g[r][c]===1)cell.classList.add('ship');else if(g[r][c]===2)cell.classList.add('hit');else if(g[r][c]===3)cell.classList.add('miss');else if(g[r][c]===4)cell.classList.add('sunk');if(bsPhase==='placement'&&bsCurShip<BS_SHIPS.length){cell.onclick=()=>bsPlaceClick(r,c);cell.onmouseenter=()=>bsPreview(r,c);cell.onmouseleave=()=>bsClearPreview()}el.appendChild(cell)}}
+function bsRenderEnemy(){const csz=bsCalcCell();const el=document.getElementById('bs-enemy-grid');el.style.gridTemplateColumns=`repeat(10,${csz}px)`;el.innerHTML='';const g=Array(10).fill(null).map(()=>Array(10).fill(0));for(const key in bsMyShots){const[r,c]=key.split(',').map(Number);g[r][c]=bsMyShots[key]?2:3}for(const s of bsEnemyShips)if(s.sunk)for(const[r,c] of s.cells)g[r][c]=4;for(let r=0;r<10;r++)for(let c=0;c<10;c++){const cell=document.createElement('div');cell.className='gcell';cell.style.width=csz+'px';cell.style.height=csz+'px';if(g[r][c]===2)cell.classList.add('hit');else if(g[r][c]===3)cell.classList.add('miss');else if(g[r][c]===4)cell.classList.add('sunk');if(bsPhase==='playing'&&bsMyTurn&&g[r][c]===0){cell.classList.add('fire-target');cell.onclick=()=>bsFireAt(r,c)}el.appendChild(cell)}}
+function bsRenderList(){const el=document.getElementById('bs-ship-list');el.innerHTML='';const placed=bsMyShips.length;for(let i=0;i<BS_SHIPS.length;i++){const d=document.createElement('div');d.className='ship-item'+(i<placed?' placed':'')+(i===bsCurShip&&i<BS_SHIPS.length?' active':'');d.textContent=t('Ship')+' '+BS_SHIPS[i];el.appendChild(d)}}
+function bsPlaceClick(r,c){if(bsCurShip>=BS_SHIPS.length)return;const size=BS_SHIPS[bsCurShip];const grid=Array(10).fill(null).map(()=>Array(10).fill(0));for(const s of bsMyShips)for(const[cr,cc] of s.cells)grid[cr][cc]=1;if(bsCanPlace(grid,[],size,r,c,bsHoriz)){bsPlaceShip(grid,bsMyShips,size,r,c,bsHoriz);bsCurShip++;sndClick();bsRenderMy();bsRenderList()}}
+function bsPreview(r,c){if(bsCurShip>=BS_SHIPS.length)return;const size=BS_SHIPS[bsCurShip];const grid=document.getElementById('bs-my-grid');const cells=grid.querySelectorAll('.gcell');const g=Array(10).fill(null).map(()=>Array(10).fill(0));for(const s of bsMyShips)for(const[cr,cc] of s.cells)g[cr][cc]=1;const ok=bsCanPlace(g,[],size,r,c,bsHoriz);for(let i=0;i<size;i++){const cr=bsHoriz?r:r+i,cc=bsHoriz?c+i:c;if(cr>=10||cc>=10)continue;const idx=cr*10+cc;if(cells[idx])cells[idx].classList.add(ok?'preview-ok':'preview-no')}}
+function bsClearPreview(){document.querySelectorAll('.preview-ok,.preview-no').forEach(el=>{el.classList.remove('preview-ok','preview-no')})}
+function bsFireAt(r,c){if(!bsMyTurn||bsPhase!=='playing')return;const key=r+','+c;if(bsMyShots[key]!==undefined)return;bsMyTurn=false;
+  if(bsGameMode==='ai'){
+    // Resolve player shot locally
+    bsResolveShotAI(r,c,true);
+  }else{
+    if(bsRef){bsRef.child('shots/p'+bsPlayer).push({r,c,time:Date.now()});bsRef.update({turn:bsPlayer===1?2:1})}
+  }
+  sndClick();
+}
+function bsResolveShot(r,c,byPlayer){const isMe=byPlayer===bsPlayer;const ships=isMe?bsEnemyShips:bsMyShips;const shots=isMe?bsMyShots:bsEnemyShots;const key=r+','+c;let hit=false;for(const s of ships){for(const[sr,sc] of s.cells){if(sr===r&&sc===c){hit=true;s.hit++;if(s.hit>=s.size){s.sunk=true;beep(150,200);setTimeout(()=>beep(100,150),100)}else{beep(200,100);setTimeout(()=>beep(100,80),50)}break}}if(hit)break}if(!hit){beep(600,80,0.05)}shots[key]=hit;const allSunk=ships.every(s=>s.sunk);if(allSunk&&isMe){bsRef.update({winner:bsPlayer,status:'finished'})}bsRenderMy();bsRenderEnemy()}
+
+// ===== BATTLESHIP AI =====
+function bsResolveShotAI(r,c,isPlayerShot){
+  if(isPlayerShot){
+    // Player shooting at AI ships
+    const key=r+','+c;let hit=false;
+    for(const s of bsEnemyShips){
+      for(const[sr,sc] of s.cells){if(sr===r&&sc===c){hit=true;s.hit++;if(s.hit>=s.size){s.sunk=true;beep(150,200);setTimeout(()=>beep(100,150),100)}else{beep(200,100);setTimeout(()=>beep(100,80),50)}break}}
+      if(hit)break;
+    }
+    if(!hit){beep(600,80,0.05)}
+    bsMyShots[key]=hit;
+    const allSunk=bsEnemyShips.every(s=>s.sunk);
+    if(allSunk){bsPhase='finished';bsActive=false;showGameOver(true);bsRenderMy();bsRenderEnemy();return}
+    bsRenderMy();bsRenderEnemy();
+    // AI shoots after 800ms
+    bsMyTurn=false;bsUpdateTurn();
+    bsAITimer=setTimeout(()=>bsAIShoot(),800);
+  }else{
+    // AI shooting at player ships
+    const key=r+','+c;let hit=false;
+    for(const s of bsMyShips){
+      for(const[sr,sc] of s.cells){if(sr===r&&sc===c){hit=true;s.hit++;if(s.hit>=s.size){s.sunk=true;beep(150,200);setTimeout(()=>beep(100,150),100)}else{beep(200,100);setTimeout(()=>beep(100,80),50)}break}}
+      if(hit)break;
+    }
+    if(!hit){beep(600,80,0.05)}
+    bsEnemyShots[key]=hit;
+    const allSunk=bsMyShips.every(s=>s.sunk);
+    if(allSunk){bsPhase='finished';bsActive=false;showGameOver(false);bsRenderMy();bsRenderEnemy();return}
+    bsMyTurn=true;
+    bsRenderMy();bsRenderEnemy();bsUpdateTurn();
+  }
+}
+function bsAIShoot(){
+  if(bsPhase!=='playing'||bsGameMode!=='ai')return;
+  let r,c;
+  if(bsAIHits.length>0){
+    // Target mode: try adjacent cells to last hit
+    const lastHit=bsAIHits[bsAIHits.length-1];
+    const dirs=[[0,1],[0,-1],[1,0],[-1,0]];
+    const shuffled=dirs.sort(()=>Math.random()-0.5);
+    let found=false;
+    for(const[dr,dc] of shuffled){
+      const nr=lastHit.r+dr,nc=lastHit.c+dc;
+      if(nr>=0&&nr<10&&nc>=0&&nc<10&&!bsAIVisited.has(nr+','+nc)){
+        r=nr;c=nc;found=true;break;
+      }
+    }
+    if(!found){
+      // Try all hits for adjacent cells
+      for(let i=bsAIHits.length-1;i>=0;i--){
+        const h=bsAIHits[i];
+        for(const[dr,dc] of dirs.sort(()=>Math.random()-0.5)){
+          const nr=h.r+dr,nc=h.c+dc;
+          if(nr>=0&&nr<10&&nc>=0&&nc<10&&!bsAIVisited.has(nr+','+nc)){
+            r=nr;c=nc;found=true;break;
+          }
+        }
+        if(found)break;
+      }
+    }
+    if(!found){
+      // Fall back to hunt mode
+      bsAIHits=[];r=c=-1;
+    }
+  }
+  if(r===undefined||r===-1||c===-1){
+    // Hunt mode: random unvisited cell
+    const unvisited=[];
+    for(let ri=0;ri<10;ri++)for(let ci=0;ci<10;ci++){
+      if(!bsAIVisited.has(ri+','+ci))unvisited.push([ri,ci]);
+    }
+    if(unvisited.length===0)return;
+    const pick=unvisited[Math.floor(Math.random()*unvisited.length)];
+    r=pick[0];c=pick[1];
+  }
+  bsAIVisited.add(r+','+c);
+  // Check if hit
+  let hit=false;
+  for(const s of bsMyShips){for(const[sr,sc] of s.cells){if(sr===r&&sc===c){hit=true;break}}if(hit)break}
+  if(hit){bsAIHits.push({r,c})}
+  else{
+    // Check if any current target ships are sunk, if so clear hits for those ships
+    // Check if the AI hits stack corresponds to a sunk ship, if so remove them
+    const sunkHits=[];
+    for(const s of bsMyShips){
+      if(s.sunk){
+        for(const[sr,sc] of s.cells){
+          const idx=bsAIHits.findIndex(h=>h.r===sr&&h.c===sc);
+          if(idx>=0)sunkHits.push(idx);
+        }
+      }
+    }
+    if(sunkHits.length>0){
+      // Remove sunk ship hits from AI hit stack
+      bsAIHits=bsAIHits.filter((_,i)=>!sunkHits.includes(i));
+    }
+  }
+  bsResolveShotAI(r,c,false);
+}
+
+let bsActive=false;
+function bsSetReady(){
+  if(bsMyShips.length<BS_SHIPS.length){document.getElementById('bs-status').textContent='Place all ships!';return}
+  bsMyReady=true;
+  document.getElementById('bs-place-controls').style.display='none';
+  if(bsGameMode==='ai'){
+    // AI is already ready, start battle immediately
+    document.getElementById('bs-phase').textContent=t('YOUR TURN — FIRE!');
+    bsStartBattleAI();
+  }else{
+    document.getElementById('bs-phase').textContent='WAITING...';
+    const shipData=bsMyShips.map(s=>({size:s.size,r:s.r,c:s.c,hz:s.hz,cells:s.cells}));
+    bsRef.update({['p'+bsPlayer+'Ready']:true,['p'+bsPlayer+'Ships']:shipData});
+    if(bsEnemyReady)bsStartBattle();
+  }
+}
+function bsStartBattleAI(){
+  bsPhase='playing';bsActive=true;
+  bsMyTurn=true;
+  document.getElementById('bs-place-controls').style.display='none';
+  document.getElementById('bs-phase').textContent=t('YOUR TURN — FIRE!');
+  bsRenderMy();bsRenderEnemy();bsUpdateTurn();
+}
+function bsStartBattle(){bsPhase='playing';bsActive=true;document.getElementById('bs-place-controls').style.display='none';document.getElementById('bs-phase').textContent=t('YOUR TURN — FIRE!');bsRef.child('p'+(bsPlayer===1?2:1)+'Ships').once('value',snap=>{const d=snap.val();if(d){bsEnemyShips=d.map(s=>({...s,hit:0,sunk:false}));bsRenderEnemy()}});bsRenderMy();bsRenderEnemy();bsUpdateTurn()}
+function bsUpdateTurn(){const ti=document.getElementById('bs-turn-ind');if(bsPhase!=='playing'){ti.textContent='';return}if(bsMyTurn){ti.textContent='► '+t('YOUR TURN — FIRE!')+' ◄';ti.className='turn-ind-bs turn-yours';document.getElementById('bs-phase').textContent=t('YOUR TURN — FIRE!')}else{if(bsGameMode==='ai'){ti.textContent=t('THINKING...');ti.className='turn-ind-bs turn-thinking';document.getElementById('bs-phase').textContent=t('THINKING...')}else{ti.textContent=t("OPPONENT'S TURN");ti.className='turn-ind-bs turn-wait';document.getElementById('bs-phase').textContent=t("OPPONENT'S TURN")}}bsRenderEnemy()}
+function bsCreateRoom(){const name=document.getElementById('bs-name').value.trim();if(!name){document.getElementById('bs-name').style.borderColor='#ff3333';return}bsName=name;bsPlayer=1;bsGameMode='online';initFB();bsRoomId=genCode();bsRef=db.ref('battleship/'+bsRoomId);bsRef.set({p1:name,p2:'',status:'waiting',p1Ready:false,p2Ready:false,turn:1,winner:null,chat:[],ts:firebase.database.ServerValue.TIMESTAMP});document.getElementById('bs-code-box').style.display='block';document.getElementById('bs-room-code').textContent=bsRoomId;document.getElementById('bs-waiting').style.display='block';bsRef.child('p2').on('value',snap=>{if(snap.val()&&bsPhase==='lobby'){document.getElementById('bs-waiting').style.display='none';bsEnterGame()}})}
+function bsJoinRoom(){const name=document.getElementById('bs-name').value.trim();const code=document.getElementById('bs-join').value.trim().toUpperCase();if(!name){document.getElementById('bs-name').style.borderColor='#ff3333';return}if(!code||code.length<4){document.getElementById('bs-join').style.borderColor='#ff3333';return}bsName=name;bsPlayer=2;bsGameMode='online';initFB();bsRoomId=code;bsRef=db.ref('battleship/'+bsRoomId);bsRef.once('value').then(snap=>{const d=snap.val();if(!d||d.status!=='waiting'||d.p2)return;bsRef.update({p2:name});bsEnterGame()})}
+function bsStartAI(){
+  bsName=document.getElementById('bs-name').value.trim()||'PLAYER';
+  bsPlayer=1;bsGameMode='ai';
+  bsPhase='placement';showScreen('battleship-game');setConn(false);
+  bsMyShips=[];bsEnemyShips=bsAutoPlaceAI();bsMyShots={};bsEnemyShots={};bsCurShip=0;bsHoriz=true;bsMyReady=false;bsEnemyReady=false;bsActive=false;
+  bsAIHits=[];bsAIVisited=new Set();
+  document.getElementById('bs-chat-panel').style.display='none';
+  bsRenderMy();bsRenderEnemy();bsRenderList();
+}
+function bsEnterGame(){bsPhase='placement';bsGameMode='online';showScreen('battleship-game');setConn(true);bsMyShips=[];bsEnemyShips=[];bsMyShots={};bsEnemyShots={};bsCurShip=0;bsHoriz=true;bsMyReady=false;bsEnemyReady=false;bsActive=false;document.getElementById('bs-chat-panel').style.display='';bsRenderMy();bsRenderEnemy();bsRenderList();bsRef.child('p1Ready').on('value',snap=>{if(bsPlayer===2&&snap.val())bsEnemyReady=true;if(snap.val()&&bsPlayer===1&&bsMyReady)bsStartBattle()});bsRef.child('p2Ready').on('value',snap=>{if(bsPlayer===1&&snap.val())bsEnemyReady=true;if(snap.val()&&bsPlayer===2&&bsMyReady)bsStartBattle()});bsRef.child('shots/p1').on('child_added',snap=>{const s=snap.val();if(s)bsResolveShot(s.r,s.c,1)});bsRef.child('shots/p2').on('child_added',snap=>{const s=snap.val();if(s)bsResolveShot(s.r,s.c,2)});bsRef.child('turn').on('value',snap=>{bsMyTurn=snap.val()===bsPlayer;bsUpdateTurn()});bsRef.child('winner').on('value',snap=>{const w=snap.val();if(w){bsPhase='finished';showGameOver(w===bsPlayer)}});bsRef.child('chat').limitToLast(20).on('value',snap=>{const msgs=snap.val(),el=document.getElementById('bs-chat-msgs');el.innerHTML='';if(msgs)Object.values(msgs).forEach(m=>{const d=document.createElement('div');d.className=m.from===bsName?'chat-p1':'chat-p2';d.textContent=m.from+': '+m.text;el.appendChild(d)});el.scrollTop=el.scrollHeight});bsRef.child('p1Ships').on('value',snap=>{if(bsPlayer===2){const d=snap.val();if(d)bsEnemyShips=d.map(s=>({...s,hit:0,sunk:false}))}});bsRef.child('p2Ships').on('value',snap=>{if(bsPlayer===1){const d=snap.val();if(d)bsEnemyShips=d.map(s=>({...s,hit:0,sunk:false}))}})}
+function bsCopyCode(){navigator.clipboard.writeText(bsRoomId).then(()=>{document.getElementById('bs-t-copied').textContent=t('COPIED!');setTimeout(()=>document.getElementById('bs-t-copied').textContent=t('CLICK TO COPY'),1500)})}
+function bsSendChat(){const inp=document.getElementById('bs-chat-input');const text=inp.value.trim();if(!text)return;inp.value='';if(bsRef)bsRef.child('chat').push({from:bsName,text,time:Date.now()})}
+function bsCleanup(){if(bsAITimer){clearTimeout(bsAITimer);bsAITimer=null}if(bsRef){bsRef.off();bsRef.remove();bsRef=null}bsPhase='lobby';bsGameMode='online';bsActive=false;bsAIHits=[];bsAIVisited=new Set();document.getElementById('bs-code-box').style.display='none';document.getElementById('bs-waiting').style.display='none';document.getElementById('bs-place-controls').style.display='';document.getElementById('bs-chat-panel').style.display=''}
+document.getElementById('bs-chat-input').addEventListener('keydown',e=>{if(e.key==='Enter')bsSendChat()});
+
+// ===== PONG =====
+let pongRef=null,pongPlayer=0,pongName='',pongRoomId='',pongActive=false;
+let pongGameMode='online'; // 'online' or 'ai'
+const PW=600,PH=400,PADDLE_W=12,PADDLE_H=70,BALL_R=6,WIN_SCORE=7;
+let p1Y=PH/2-PADDLE_H/2,p2Y=PH/2-PADDLE_H/2,ballX=PW/2,ballY=PH/2,ballVX=3,ballVY=2,score1=0,score2=0,pongCanvas,pongCtx;
+function pongResetBall(dir){ballX=PW/2;ballY=PH/2;const angle=Math.random()*0.8-0.4;const speed=3+Math.min(score1+score2,10)*0.2;ballVX=Math.cos(angle)*speed*dir;ballVY=Math.sin(angle)*speed}
+function pongDraw(){if(!pongCtx)return;pongCtx.fillStyle='#000';pongCtx.fillRect(0,0,PW,PH);pongCtx.setLineDash([8,8]);pongCtx.strokeStyle='#00ff66';pongCtx.lineWidth=2;pongCtx.beginPath();pongCtx.moveTo(PW/2,0);pongCtx.lineTo(PW/2,PH);pongCtx.stroke();pongCtx.setLineDash([]);pongCtx.fillStyle='#ff6600';pongCtx.shadowColor='#ff6600';pongCtx.shadowBlur=10;pongCtx.fillRect(16,p1Y,PADDLE_W,PADDLE_H);pongCtx.fillStyle='#00ccff';pongCtx.shadowColor='#00ccff';pongCtx.shadowBlur=10;pongCtx.fillRect(PW-16-PADDLE_W,p2Y,PADDLE_W,PADDLE_H);pongCtx.fillStyle='#00ff66';pongCtx.shadowColor='#00ff66';pongCtx.shadowBlur=15;pongCtx.beginPath();pongCtx.arc(ballX,ballY,BALL_R,0,Math.PI*2);pongCtx.fill();pongCtx.shadowBlur=0;document.getElementById('pong-s1').textContent=score1;document.getElementById('pong-s2').textContent=score2}
+function pongPushState(){if(!pongRef)return;pongRef.update({ballX,ballY,ballVX,ballVY,score1,score2,p1Y,p2Y})}
+function pongLoop(){if(!pongActive)return;
+  if(pongGameMode==='ai'){
+    // AI mode: player is always P1, controls physics
+    ballX+=ballVX;ballY+=ballVY;
+    if(ballY-BALL_R<=0||ballY+BALL_R>=PH){ballVY=-ballVY;beep(440,40,0.1)}
+    if(ballX-BALL_R<=PADDLE_W+16&&ballX-BALL_R>16&&ballY>=p1Y&&ballY<=p1Y+PADDLE_H&&ballVX<0){ballVX=-ballVX*1.05;const rel=(ballY-p1Y)/PADDLE_H-0.5;ballVY=rel*5;ballX=PADDLE_W+16+BALL_R;beep(660,40,0.15)}
+    if(ballX+BALL_R>=PW-PADDLE_W-16&&ballX+BALL_R<PW-16&&ballY>=p2Y&&ballY<=p2Y+PADDLE_H&&ballVX>0){ballVX=-ballVX*1.05;const rel=(ballY-p2Y)/PADDLE_H-0.5;ballVY=rel*5;ballX=PW-PADDLE_W-16-BALL_R;beep(660,40,0.15)}
+    if(ballX<0){score2++;beep(220,150,0.15);pongResetBall(1)}
+    if(ballX>PW){score1++;beep(220,150,0.15);pongResetBall(-1)}
+    const maxV=8;ballVX=Math.max(-maxV,Math.min(maxV,ballVX));ballVY=Math.max(-maxV,Math.min(maxV,ballVY));
+    // AI paddle: track ball with imperfection
+    const aiTarget=ballY+((Math.random()-0.5)*20); // ±10px random offset
+    const aiSpeed=3.5;
+    const diff=aiTarget-(p2Y+PADDLE_H/2);
+    // Less accurate when ball is far away
+    const distFactor=Math.abs(ballX-(PW-16-PADDLE_W))/PW;
+    const effectiveSpeed=aiSpeed*(1-distFactor*0.5);
+    if(Math.abs(diff)>2){p2Y+=Math.sign(diff)*Math.min(Math.abs(diff),effectiveSpeed)}
+    p2Y=Math.max(0,Math.min(PH-PADDLE_H,p2Y));
+    if(score1>=WIN_SCORE){pongEndGame(1);return}
+    if(score2>=WIN_SCORE){pongEndGame(2);return}
+  }else if(pongPlayer===1){
+    // Online mode: P1 controls physics
+    ballX+=ballVX;ballY+=ballVY;
+    if(ballY-BALL_R<=0||ballY+BALL_R>=PH){ballVY=-ballVY;beep(440,40,0.1)}
+    if(ballX-BALL_R<=PADDLE_W+16&&ballX-BALL_R>16&&ballY>=p1Y&&ballY<=p1Y+PADDLE_H&&ballVX<0){ballVX=-ballVX*1.05;const rel=(ballY-p1Y)/PADDLE_H-0.5;ballVY=rel*5;ballX=PADDLE_W+16+BALL_R;beep(660,40,0.15)}
+    if(ballX+BALL_R>=PW-PADDLE_W-16&&ballX+BALL_R<PW-16&&ballY>=p2Y&&ballY<=p2Y+PADDLE_H&&ballVX>0){ballVX=-ballVX*1.05;const rel=(ballY-p2Y)/PADDLE_H-0.5;ballVY=rel*5;ballX=PW-PADDLE_W-16-BALL_R;beep(660,40,0.15)}
+    if(ballX<0){score2++;beep(220,150,0.15);pongResetBall(1);pongPushState()}
+    if(ballX>PW){score1++;beep(220,150,0.15);pongResetBall(-1);pongPushState()}
+    const maxV=8;ballVX=Math.max(-maxV,Math.min(maxV,ballVX));ballVY=Math.max(-maxV,Math.min(maxV,ballVY));
+    if(score1>=WIN_SCORE){pongEndGame(1);return}
+    if(score2>=WIN_SCORE){pongEndGame(2);return}
+    if(Math.random()<0.3)pongPushState();
+  }
+  pongDraw();requestAnimationFrame(pongLoop);
+}
+function pongEndGame(winner){pongActive=false;showGameOver(winner===pongPlayer||(pongGameMode==='ai'&&winner===1));if(pongRef)pongRef.update({winner,status:'finished'})}
+function pongHandleMove(y){if(!pongCanvas)return;const rect=pongCanvas.getBoundingClientRect();const scale=PH/rect.height;const mouseY=(y-rect.top)*scale;const targetY=Math.max(0,Math.min(PH-PADDLE_H,mouseY-PADDLE_H/2));if(pongGameMode==='ai'){p1Y=targetY}else{if(pongPlayer===1)p1Y=targetY;else p2Y=targetY;if(pongRef)pongRef.update({['p'+pongPlayer+'Y']:targetY})}}
+function pongStartAI(){
+  pongName=document.getElementById('pong-name').value.trim()||'PLAYER';
+  pongPlayer=1;pongGameMode='ai';pongActive=true;
+  showScreen('pong-game');setConn(false);
+  pongCanvas=document.getElementById('pong-canvas');
+  const maxW=Math.min(window.innerWidth-20,600),maxH=Math.min(window.innerHeight-120,400);
+  const scale=Math.min(maxW/PW,maxH/PH);
+  pongCanvas.width=PW;pongCanvas.height=PH;
+  pongCanvas.style.width=Math.floor(PW*scale)+'px';pongCanvas.style.height=Math.floor(PH*scale)+'px';
+  pongCtx=pongCanvas.getContext('2d');
+  pongCanvas.addEventListener('mousemove',e=>pongHandleMove(e.clientY));
+  pongCanvas.addEventListener('touchmove',e=>{e.preventDefault();pongHandleMove(e.touches[0].clientY)},{passive:false});
+  pongCanvas.addEventListener('touchstart',e=>{e.preventDefault();pongHandleMove(e.touches[0].clientY)},{passive:false});
+  pongResetBall(Math.random()>0.5?1:-1);pongLoop();
+}
+function pongCreateRoom(){const name=document.getElementById('pong-name').value.trim();if(!name){document.getElementById('pong-name').style.borderColor='#ff3333';return}pongName=name;pongPlayer=1;pongGameMode='online';initFB();pongRoomId=genCode();pongRef=db.ref('pong/'+pongRoomId);pongRef.set({p1:name,p2:'',status:'waiting',ballX:PW/2,ballY:PH/2,ballVX:3,ballVY:2,p1Y:PH/2-PADDLE_H/2,p2Y:PH/2-PADDLE_H/2,score1:0,score2:0,winner:null,ts:firebase.database.ServerValue.TIMESTAMP});document.getElementById('pong-code-box').style.display='block';document.getElementById('pong-room-code').textContent=pongRoomId;document.getElementById('pong-waiting').style.display='block';pongRef.child('p2').on('value',snap=>{if(snap.val()&&currentScreen==='pong-lobby')pongStartGame()})}
+function pongJoinRoom(){const name=document.getElementById('pong-name').value.trim();const code=document.getElementById('pong-join').value.trim().toUpperCase();if(!name){document.getElementById('pong-name').style.borderColor='#ff3333';return}if(!code||code.length<4){document.getElementById('pong-join').style.borderColor='#ff3333';return}pongName=name;pongPlayer=2;pongGameMode='online';initFB();pongRoomId=code;pongRef=db.ref('pong/'+pongRoomId);pongRef.once('value').then(snap=>{const d=snap.val();if(!d||d.status!=='waiting'||d.p2)return;pongRef.update({p2:name});pongStartGame()})}
+function pongStartGame(){pongActive=true;pongGameMode='online';showScreen('pong-game');setConn(true);pongCanvas=document.getElementById('pong-canvas');const maxW=Math.min(window.innerWidth-20,600),maxH=Math.min(window.innerHeight-120,400);const scale=Math.min(maxW/PW,maxH/PH);pongCanvas.width=PW;pongCanvas.height=PH;pongCanvas.style.width=Math.floor(PW*scale)+'px';pongCanvas.style.height=Math.floor(PH*scale)+'px';pongCtx=pongCanvas.getContext('2d');pongCanvas.addEventListener('mousemove',e=>pongHandleMove(e.clientY));pongCanvas.addEventListener('touchmove',e=>{e.preventDefault();pongHandleMove(e.touches[0].clientY)},{passive:false});pongCanvas.addEventListener('touchstart',e=>{e.preventDefault();pongHandleMove(e.touches[0].clientY)},{passive:false});if(pongPlayer===2){pongRef.on('value',snap=>{const d=snap.val();if(!d)return;ballX=d.ballX??PW/2;ballY=d.ballY??PH/2;ballVX=d.ballVX??3;ballVY=d.ballVY??2;score1=d.score1??0;score2=d.score2??0;if(d.p1Y!==undefined)p1Y=d.p1Y;if(d.winner)pongEndGame(d.winner)})}else{pongRef.child('p2Y').on('value',snap=>{if(snap.val()!==null)p2Y=snap.val()});pongRef.child('winner').on('value',snap=>{if(snap.val())pongEndGame(snap.val())})}pongResetBall(Math.random()>0.5?1:-1);pongLoop()}
+function pongCopyCode(){navigator.clipboard.writeText(pongRoomId).then(()=>{document.getElementById('pong-t-copied').textContent=t('COPIED!');setTimeout(()=>document.getElementById('pong-t-copied').textContent=t('CLICK TO COPY'),1500)})}
+function pongCleanup(){if(pongRef){pongRef.off();pongRef.remove();pongRef=null}pongActive=false;pongGameMode='online';pongCanvas=null;pongCtx=null;score1=0;score2=0;p1Y=PH/2-PADDLE_H/2;p2Y=PH/2-PADDLE_H/2;document.getElementById('pong-code-box').style.display='none';document.getElementById('pong-waiting').style.display='none'}
+window.addEventListener('resize',()=>{if(currentScreen==='checkers-game')chkRender();if(currentScreen==='battleship-game'){bsRenderMy();bsRenderEnemy()}if(currentScreen==='pong-game'&&pongCanvas){const maxW=Math.min(window.innerWidth-20,600),maxH=Math.min(window.innerHeight-120,400);const scale=Math.min(maxW/PW,maxH/PH);pongCanvas.style.width=Math.floor(PW*scale)+'px';pongCanvas.style.height=Math.floor(PH*scale)+'px'}});
+
+updateAllLang();updateHighScore();setConn(false);
+document.addEventListener('click',()=>{if(audioCtx.state==='suspended')audioCtx.resume()},{once:true});
+</script>
+</body>
+</html>
