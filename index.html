@@ -677,41 +677,23 @@ function pongLoop(){if(!pongActive)return;
     if(ballX<0){score2++;beep(220,150,0.15);pongResetBall(1)}
     if(ballX>PW){score1++;beep(220,150,0.15);pongResetBall(-1)}
     const maxV=8;ballVX=Math.max(-maxV,Math.min(maxV,ballVX));ballVY=Math.max(-maxV,Math.min(maxV,ballVY));
-    // Smarter AI paddle strategy
+    // Original 1972 Pong AI: just track ball's current Y, no prediction
     let aiTarget=PH/2;
     if(ballVX>0){
-      // Ball coming toward AI — predict where it will arrive
-      const timeToArrive=Math.max(1,(PW-PADDLE_W-16-ballX)/Math.max(1,Math.abs(ballVX)));
-      let predictY=ballY+ballVY*timeToArrive;
-      // Bounce prediction off walls
-      let bounces=0;
-      while((predictY<0||predictY>PH)&&bounces<4){if(predictY<0)predictY=-predictY;if(predictY>PH)predictY=2*PH-predictY;bounces++}
-      // Strategic offset: try to hit ball with edge of paddle for angled returns
-      const playerCenter=p1Y+PADDLE_H/2;
-      // Aim to hit with the edge AWAY from player — creates sharper angles
-      const edgeOffset=(predictY<playerCenter?1:-1)*PADDLE_H*0.35;
-      // Mix between center hit and edge hit (70% edge strategy, 30% center for reliability)
-      const strategyRoll=Math.random();
-      if(strategyRoll<0.7){aiTarget=predictY+edgeOffset}
-      else{aiTarget=predictY}
-      // Add imperfection that scales with score difference (AI gets sloppier when ahead)
-      const scoreDiff=score2-score1;
-      const imperfection=15+Math.max(0,scoreDiff)*8;
-      aiTarget+=(Math.random()-0.5)*imperfection;
+      // Ball coming toward AI — track current ball Y position only
+      aiTarget=ballY;
     }else{
-      // Ball going away — drift toward center, but not jittery
-      aiTarget=PH/2+(Math.random()-0.5)*30;
+      // Ball going away — drift back to center
+      aiTarget=PH/2;
     }
-    // AI movement with speed limit and edge protection
-    const aiSpeed=3.8+Math.min(score1+score2,14)*0.1;
+    // Fixed AI speed — slower than ball so player can score
+    const aiSpeed=3.0;
     const diff=aiTarget-(p2Y+PADDLE_H/2);
-    const atEdge=p2Y<=3||p2Y>=PH-PADDLE_H-3;
-    // Stop micro-movements that cause buzzing: bigger dead zone near edges
-    const deadZone=atEdge?10:4;
-    if(Math.abs(diff)>deadZone){
-      p2Y+=Math.sign(diff)*Math.min(Math.abs(diff),aiSpeed);
+    // Large dead zone prevents jitter — only move when ball is clearly off-center
+    if(Math.abs(diff)>PADDLE_H*0.3){
+      p2Y+=Math.sign(diff)*Math.min(Math.abs(diff)-PADDLE_H*0.15,aiSpeed);
     }
-    // Hard clamp — never exceed bounds
+    // Clamp
     p2Y=Math.max(0,Math.min(PH-PADDLE_H,p2Y));
     if(score1>=WIN_SCORE){pongEndGame(1);return}
     if(score2>=WIN_SCORE){pongEndGame(2);return}
