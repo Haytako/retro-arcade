@@ -678,21 +678,25 @@ function pongLoop(){if(!pongActive)return;
     if(ballX<0){score2++;beep(220,150,0.15);pongResetBall(1)}
     if(ballX>PW){score1++;beep(220,150,0.15);pongResetBall(-1)}
     const maxV=8;ballVX=Math.max(-maxV,Math.min(maxV,ballVX));ballVY=Math.max(-maxV,Math.min(maxV,ballVY));
-    // Classic 1972 Pong AI: track ball Y at limited speed, no prediction
+    // Classic Pong AI: aims ball away from player, not just blocks flat
     const aiPaddleCenter=p2Y+PADDLE_H/2;
     let aiTarget,aiMaxSpeed;
     if(ballVX>0&&ballX>PW*0.35){
-      // Ball approaching — track current ball Y (no bounce prediction)
-      aiTarget=ballY; aiMaxSpeed=2.0;
+      // Ball approaching — position paddle to AIM the ball
+      // Offset so ball hits paddle EDGE → creates angled returns
+      const playerCenter=p1Y+PADDLE_H/2;
+      // Aim AWAY from where the player currently is
+      const aimDir=playerCenter>PH/2?1:-1;
+      aiTarget=ballY+aimDir*PADDLE_H*0.3;
+      aiMaxSpeed=2.0;
     }else{
       // Ball going away — slowly drift to center
       aiTarget=PH/2; aiMaxSpeed=1.0;
     }
     const aiDiff=aiTarget-aiPaddleCenter;
-    const aiDead=PADDLE_H*0.22; // ~15px dead zone prevents jitter
+    const aiDead=PADDLE_H*0.18; // dead zone prevents jitter
     if(Math.abs(aiDiff)>aiDead){
       // Proportional move: fraction of distance, capped at max speed
-      // This decelerates near target — no overshoot, no jitter
       const aiMove=Math.min(aiMaxSpeed,Math.abs(aiDiff)*0.08);
       p2Y+=Math.sign(aiDiff)*aiMove;
     }
