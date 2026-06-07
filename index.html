@@ -67,8 +67,8 @@ html,body{background:#000;width:100%;height:100%;font-family:'Press Start 2P',mo
 .piece-dark{background:#00ccff;color:#000;box-shadow:0 0 8px #00ccff;border:2px solid #0099cc}
 .piece.selected{animation:pulse 0.5s infinite alternate;transform:scale(1.1)}
 .piece-king::after{content:'K';font-size:clamp(6px,2vw,12px);font-weight:bold}
-.move-dot{width:30%;height:30%;border-radius:50%;background:#00ff66;opacity:0.7;animation:blink 0.8s step-end infinite}
-.capture-ring{width:70%;height:70%;border-radius:50%;border:3px solid #ff3333;opacity:0.8;animation:blink 0.5s step-end infinite}
+/* hints removed — no move indicators */
+.move-hint{width:40%;height:40%;border-radius:50%;background:rgba(255,255,255,0.25)}
 #battleship-game{padding:8px;overflow-y:auto;justify-content:flex-start}
 .bs-title{font-size:clamp(12px,3vw,20px);color:#00ccff;text-shadow:0 0 10px #00ccff;margin:5px 0}
 .phase-title{font-size:10px;color:#00ccff;text-shadow:0 0 5px #00ccff;margin:8px 0;text-align:center}
@@ -79,8 +79,11 @@ html,body{background:#000;width:100%;height:100%;font-family:'Press Start 2P',mo
 .gcell:hover{background:#1a3a5f}
 .gcell.ship{background:#14b8a6;border-color:#0d9488}
 .gcell.hit{background:#dc2626;border-color:#991b1b;color:#fff}
-.gcell.miss{background:#0f2744;border-color:#0a1e38;color:#888}
+.gcell.hit::after{content:'×';font-size:clamp(10px,2.5vw,16px);color:#fff;font-weight:bold}
+.gcell.miss{background:#0f2744;border-color:#0a1e38;color:#555}
+.gcell.miss::after{content:'·';font-size:clamp(8px,2vw,14px);color:#555}
 .gcell.sunk{background:#991b1b;border-color:#7f1d1d}
+.gcell.sunk::after{content:'×';font-size:clamp(10px,2.5vw,16px);color:#fff;font-weight:bold}
 .gcell.preview-ok{background:rgba(20,184,166,0.3)}.gcell.preview-no{background:rgba(220,38,38,0.3)}
 .gcell.fire-target{cursor:crosshair}.gcell.fire-target:hover{background:#1a3a5f;box-shadow:inset 0 0 8px #ff3333}
 .ship-list{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:6px 0;font-size:7px}
@@ -256,7 +259,8 @@ function chkGetMoves(r,c){return chkGetMovesFor(r,c,false)}
 function chkAIHasCapture(){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(chkAIOwn(chkBoard[r][c])&&chkGetMovesFor(r,c,true).captures.length>0)return true;return false}
 function chkHasCapture(){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(chkIsOwn(chkBoard[r][c])&&chkGetMoves(r,c).captures.length>0)return true;return false}
 function chkCalcSize(){const s=Math.min(window.innerWidth-20,window.innerHeight-160,500);return Math.floor(s/8)*8}
-function chkRender(){const sz=chkCalcSize(),csz=sz/8;const bEl=document.getElementById('board');bEl.style.width=sz+'px';bEl.style.height=sz+'px';bEl.innerHTML='';const flipped=chkPlayer===2;for(let ri=0;ri<8;ri++)for(let ci=0;ci<8;ci++){const r=flipped?7-ri:ri,c=flipped?7-ci:ci;const cell=document.createElement('div');cell.className='cell '+((r+c)%2===0?'cell-light':'cell-dark');cell.style.width=csz+'px';cell.style.height=csz+'px';const v=chkBoard[r][c];if(v>0){const p=document.createElement('div');p.className='piece '+(chkIsWhite(v)?'piece-white':'piece-dark')+(chkIsKing(v)?' piece-king':'');if(chkSelected&&chkSelected.r===r&&chkSelected.c===c)p.classList.add('selected');cell.appendChild(p)}const vm=chkValidMoves.find(m=>m.r===r&&m.c===c);if(vm){const el=document.createElement('div');el.className=vm.cr>=0?'capture-ring':'move-dot';cell.appendChild(el)}cell.onclick=()=>chkCellClick(r,c);bEl.appendChild(cell)}document.getElementById('chk-p1-info').textContent=(chkPlayer===1?'►':'')+chkName+': '+chkCount(1);document.getElementById('chk-p2-info').textContent=chkP2Name+': '+chkCount(2)+(chkPlayer===2?'◄':'');const ti=document.getElementById('chk-turn-ind');if(chkMyTurn){ti.textContent='► '+t('YOUR TURN')+' ◄';ti.className='turn-yours'}else if(chkGameMode==='ai'){ti.textContent=t('THINKING...');ti.className='turn-thinking'}else{ti.textContent=t("OPPONENT'S TURN");ti.className='turn-wait'}}
+function chkRender(){const sz=chkCalcSize(),csz=sz/8;const bEl=document.getElementById('board');bEl.style.width=sz+'px';bEl.style.height=sz+'px';bEl.innerHTML='';const flipped=chkPlayer===2;for(let ri=0;ri<8;ri++)for(let ci=0;ci<8;ci++){const r=flipped?7-ri:ri,c=flipped?7-ci:ci;const cell=document.createElement('div');cell.className='cell '+((r+c)%2===0?'cell-light':'cell-dark');cell.style.width=csz+'px';cell.style.height=csz+'px';const v=chkBoard[r][c];if(v>0){const p=document.createElement('div');p.className='piece '+(chkIsWhite(v)?'piece-white':'piece-dark')+(chkIsKing(v)?' piece-king':'');if(chkSelected&&chkSelected.r===r&&chkSelected.c===c)p.classList.add('selected');cell.appendChild(p)}// no hints rendered — showing neutral dots for selected piece
+const vm=chkValidMoves.find(m=>m.r===r&&m.c===c);if(vm){const el=document.createElement('div');el.className='move-hint';cell.appendChild(el)}cell.onclick=()=>chkCellClick(r,c);bEl.appendChild(cell)}document.getElementById('chk-p1-info').textContent=(chkPlayer===1?'►':'')+chkName+': '+chkCount(1);document.getElementById('chk-p2-info').textContent=chkP2Name+': '+chkCount(2)+(chkPlayer===2?'◄':'');const ti=document.getElementById('chk-turn-ind');if(chkMyTurn){ti.textContent='► '+t('YOUR TURN')+' ◄';ti.className='turn-yours'}else if(chkGameMode==='ai'){ti.textContent=t('THINKING...');ti.className='turn-thinking'}else{ti.textContent=t("OPPONENT'S TURN");ti.className='turn-wait'}}
 
 // ===== CHECKERS AI =====
 function chkAIMove(){
@@ -593,15 +597,30 @@ function pongLoop(){if(!pongActive)return;
     if(ballX<0){score2++;beep(220,150,0.15);pongResetBall(1)}
     if(ballX>PW){score1++;beep(220,150,0.15);pongResetBall(-1)}
     const maxV=8;ballVX=Math.max(-maxV,Math.min(maxV,ballVX));ballVY=Math.max(-maxV,Math.min(maxV,ballVY));
-    // AI paddle: track ball with imperfection
-    const aiTarget=ballY+((Math.random()-0.5)*20); // ±10px random offset
-    const aiSpeed=3.5;
+    // AI paddle: strategic positioning with prediction
+    let aiTarget=PH/2; // default: center
+    if(ballVX>0){
+      // Ball coming toward AI — predict where it will arrive
+      const timeToArrive=Math.max(1,(PW-PADDLE_W-16-ballX)/Math.max(1,ballVX));
+      aiTarget=ballY+ballVY*timeToArrive;
+      // Bounce prediction off walls
+      while(aiTarget<0||aiTarget>PH){if(aiTarget<0)aiTarget=-aiTarget;if(aiTarget>PH)aiTarget=2*PH-aiTarget}
+      // Add strategic offset based on where player is — try to aim away from them
+      const playerCenter=p1Y+PADDLE_H/2;
+      const aimOffset=(aiTarget<playerCenter?-1:1)*Math.min(25,PADDLE_H*0.3);
+      aiTarget+=aimOffset;
+      // Add small imperfection
+      aiTarget+=(Math.random()-0.5)*12;
+    }else{
+      // Ball going away — drift toward center with slight randomness
+      aiTarget=PH/2+(Math.random()-0.5)*60;
+    }
+    const aiSpeed=4.5;
     const diff=aiTarget-(p2Y+PADDLE_H/2);
-    // Less accurate when ball is far away
-    const distFactor=Math.abs(ballX-(PW-16-PADDLE_W))/PW;
-    const effectiveSpeed=aiSpeed*(1-distFactor*0.5);
-    if(Math.abs(diff)>2){p2Y+=Math.sign(diff)*Math.min(Math.abs(diff),effectiveSpeed)}
-    p2Y=Math.max(0,Math.min(PH-PADDLE_H,p2Y));
+    // Only move if difference is meaningful — prevents jitter at edges
+    if(Math.abs(diff)>4){p2Y+=Math.sign(diff)*Math.min(Math.abs(diff),aiSpeed)}
+    // Clamp and prevent buzzing at edges
+    p2Y=Math.max(2,Math.min(PH-PADDLE_H-2,p2Y));
     if(score1>=WIN_SCORE){pongEndGame(1);return}
     if(score2>=WIN_SCORE){pongEndGame(2);return}
   }else if(pongPlayer===1){
