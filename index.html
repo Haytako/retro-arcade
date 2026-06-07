@@ -662,7 +662,7 @@ document.getElementById('bs-chat-input').addEventListener('keydown',e=>{if(e.key
 let pongRef=null,pongPlayer=0,pongName='',pongRoomId='',pongActive=false;
 let pongGameMode='online'; // 'online' or 'ai'
 const PW=600,PH=400,PADDLE_W=12,PADDLE_H=70,BALL_R=6,WIN_SCORE=7;
-let p1Y=PH/2-PADDLE_H/2,p2Y=PH/2-PADDLE_H/2,ballX=PW/2,ballY=PH/2,ballVX=3,ballVY=2,score1=0,score2=0,pongCanvas,pongCtx;
+let p1Y=PH/2-PADDLE_H/2,p2Y=PH/2-PADDLE_H/2,ballX=PW/2,ballY=PH/2,ballVX=3,ballVY=2,score1=0,score2=0,pongCanvas,pongCtx,p1TargetY=PH/2-PADDLE_H/2;
 // AI vars cleaned up — logic is inline now
 function pongResetBall(dir){ballX=PW/2;ballY=PH/2;const angle=Math.random()*0.8-0.4;const speed=3+Math.min(score1+score2,10)*0.2;ballVX=Math.cos(angle)*speed*dir;ballVY=Math.sin(angle)*speed}
 function pongDraw(){if(!pongCtx)return;pongCtx.fillStyle='#000';pongCtx.fillRect(0,0,PW,PH);pongCtx.setLineDash([8,8]);pongCtx.strokeStyle='#00ff66';pongCtx.lineWidth=2;pongCtx.beginPath();pongCtx.moveTo(PW/2,0);pongCtx.lineTo(PW/2,PH);pongCtx.stroke();pongCtx.setLineDash([]);pongCtx.fillStyle='#ff6600';pongCtx.shadowColor='#ff6600';pongCtx.shadowBlur=10;pongCtx.fillRect(16,p1Y,PADDLE_W,PADDLE_H);pongCtx.fillStyle='#00ccff';pongCtx.shadowColor='#00ccff';pongCtx.shadowBlur=10;pongCtx.fillRect(PW-16-PADDLE_W,p2Y,PADDLE_W,PADDLE_H);pongCtx.fillStyle='#00ff66';pongCtx.shadowColor='#00ff66';pongCtx.shadowBlur=15;pongCtx.beginPath();pongCtx.arc(ballX,ballY,BALL_R,0,Math.PI*2);pongCtx.fill();pongCtx.shadowBlur=0;document.getElementById('pong-s1').textContent=score1;document.getElementById('pong-s2').textContent=score2}
@@ -678,20 +678,24 @@ function pongLoop(){if(!pongActive)return;
     if(ballX<0){score2++;beep(220,150,0.15);pongResetBall(1)}
     if(ballX>PW){score1++;beep(220,150,0.15);pongResetBall(-1)}
     const maxV=8;ballVX=Math.max(-maxV,Math.min(maxV,ballVX));ballVY=Math.max(-maxV,Math.min(maxV,ballVY));
-    // Balanced Pong AI: challenging but beatable
-    const aiPaddleCenter=p2Y+PADDLE_H/2;
-    let aiTarget,aiSpeed;
-    if(ballVX>0&&ballX>PW*0.4){
-      // Ball approaching — track ball Y, no prediction
-      aiTarget=ballY; aiSpeed=1.7;
+    // Both paddles move at limited speed — like real 1972 Pong knobs
+    // Player is 2x faster than AI (like arcader.com reference: 4 vs 1.6)
+    const P1_SPEED=4.0, P2_SPEED=1.8;
+    // Player paddle: smoothly follow mouse target at limited speed
+    const p1Diff=p1TargetY-p1Y;
+    if(Math.abs(p1Diff)>1) p1Y+=Math.sign(p1Diff)*Math.min(P1_SPEED,Math.abs(p1Diff));
+    p1Y=Math.max(0,Math.min(PH-PADDLE_H,p1Y));
+    // AI paddle: track ball Y at limited speed, no prediction, no dead zone
+    if(ballVX>0){
+      // Ball coming toward AI — move toward ball
+      const aiCenter=p2Y+PADDLE_H/2;
+      if(ballY<aiCenter) p2Y-=P2_SPEED;
+      else if(ballY>aiCenter) p2Y+=P2_SPEED;
     }else{
       // Ball going away — drift to center
-      aiTarget=PH/2; aiSpeed=1.0;
-    }
-    const aiDiff=aiTarget-aiPaddleCenter;
-    const aiDead=PADDLE_H*0.2;
-    if(Math.abs(aiDiff)>aiDead){
-      p2Y+=Math.sign(aiDiff)*aiSpeed;
+      const center=PH/2, aiCenter=p2Y+PADDLE_H/2;
+      if(center<aiCenter-5) p2Y-=P2_SPEED*0.5;
+      else if(center>aiCenter+5) p2Y+=P2_SPEED*0.5;
     }
     p2Y=Math.max(0,Math.min(PH-PADDLE_H,p2Y));
     if(score1>=WIN_SCORE){pongEndGame(1);return}
@@ -713,7 +717,7 @@ function pongLoop(){if(!pongActive)return;
   pongDraw();requestAnimationFrame(pongLoop);
 }
 function pongEndGame(winner){pongActive=false;showGameOver(winner===pongPlayer||(pongGameMode==='ai'&&winner===1));if(pongRef)pongRef.update({winner,status:'finished'})}
-function pongHandleMove(y){if(!pongCanvas)return;const rect=pongCanvas.getBoundingClientRect();const scale=PH/rect.height;const mouseY=(y-rect.top)*scale;const targetY=Math.max(0,Math.min(PH-PADDLE_H,mouseY-PADDLE_H/2));if(pongGameMode==='ai'){p1Y=targetY}else{if(pongPlayer===1)p1Y=targetY;else p2Y=targetY;if(pongRef)pongRef.update({['p'+pongPlayer+'Y']:targetY})}}
+function pongHandleMove(y){if(!pongCanvas)return;const rect=pongCanvas.getBoundingClientRect();const scale=PH/rect.height;const mouseY=(y-rect.top)*scale;const targetY=Math.max(0,Math.min(PH-PADDLE_H,mouseY-PADDLE_H/2));if(pongGameMode==='ai'){p1TargetY=targetY}else{if(pongPlayer===1)p1Y=targetY;else p2Y=targetY;if(pongRef)pongRef.update({['p'+pongPlayer+'Y']:targetY})}}
 function pongBindControls(){const el=document.getElementById('pong-game');el.addEventListener('mousemove',e=>pongHandleMove(e.clientY));el.addEventListener('touchmove',e=>{e.preventDefault();pongHandleMove(e.touches[0].clientY)},{passive:false});el.addEventListener('touchstart',e=>{e.preventDefault();pongHandleMove(e.touches[0].clientY)},{passive:false})}
 function pongStartAI(){
   pongName=document.getElementById('pong-name').value.trim()||'PLAYER';
@@ -732,7 +736,7 @@ function pongCreateRoom(){const name=document.getElementById('pong-name').value.
 function pongJoinRoom(){const name=document.getElementById('pong-name').value.trim();const code=document.getElementById('pong-join').value.trim().toUpperCase();if(!name){document.getElementById('pong-name').style.borderColor='#ff3333';return}if(!code||code.length<4){document.getElementById('pong-join').style.borderColor='#ff3333';return}pongName=name;pongPlayer=2;pongGameMode='online';initFB();pongRoomId=code;pongRef=db.ref('pong/'+pongRoomId);pongRef.once('value').then(snap=>{const d=snap.val();if(!d||d.status!=='waiting'||d.p2)return;pongRef.update({p2:name});pongStartGame()})}
 function pongStartGame(){pongActive=true;pongGameMode='online';showScreen('pong-game');setConn(true);pongCanvas=document.getElementById('pong-canvas');const maxW=Math.min(window.innerWidth-20,600),maxH=Math.min(window.innerHeight-120,400);const scale=Math.min(maxW/PW,maxH/PH);pongCanvas.width=PW;pongCanvas.height=PH;pongCanvas.style.width=Math.floor(PW*scale)+'px';pongCanvas.style.height=Math.floor(PH*scale)+'px';pongCtx=pongCanvas.getContext('2d');pongBindControls();if(pongPlayer===2){pongRef.on('value',snap=>{const d=snap.val();if(!d)return;ballX=d.ballX??PW/2;ballY=d.ballY??PH/2;ballVX=d.ballVX??3;ballVY=d.ballVY??2;score1=d.score1??0;score2=d.score2??0;if(d.p1Y!==undefined)p1Y=d.p1Y;if(d.winner)pongEndGame(d.winner)})}else{pongRef.child('p2Y').on('value',snap=>{if(snap.val()!==null)p2Y=snap.val()});pongRef.child('winner').on('value',snap=>{if(snap.val())pongEndGame(snap.val())})}pongResetBall(Math.random()>0.5?1:-1);pongLoop()}
 function pongCopyCode(){navigator.clipboard.writeText(pongRoomId).then(()=>{document.getElementById('pong-t-copied').textContent=t('COPIED!');setTimeout(()=>document.getElementById('pong-t-copied').textContent=t('CLICK TO COPY'),1500)})}
-function pongCleanup(){if(pongRef){pongRef.off();pongRef.remove();pongRef=null}pongActive=false;pongGameMode='online';pongCanvas=null;pongCtx=null;score1=0;score2=0;p1Y=PH/2-PADDLE_H/2;p2Y=PH/2-PADDLE_H/2;document.getElementById('pong-code-box').style.display='none';document.getElementById('pong-waiting').style.display='none'}
+function pongCleanup(){if(pongRef){pongRef.off();pongRef.remove();pongRef=null}pongActive=false;pongGameMode='online';pongCanvas=null;pongCtx=null;score1=0;score2=0;p1Y=PH/2-PADDLE_H/2;p1TargetY=PH/2-PADDLE_H/2;p2Y=PH/2-PADDLE_H/2;document.getElementById('pong-code-box').style.display='none';document.getElementById('pong-waiting').style.display='none'}
 window.addEventListener('resize',()=>{if(currentScreen==='checkers-game')chkRender();if(currentScreen==='battleship-game'){bsRenderMy();bsRenderEnemy()}if(currentScreen==='pong-game'&&pongCanvas){const maxW=Math.min(window.innerWidth-20,600),maxH=Math.min(window.innerHeight-120,400);const scale=Math.min(maxW/PW,maxH/PH);pongCanvas.style.width=Math.floor(PW*scale)+'px';pongCanvas.style.height=Math.floor(PH*scale)+'px'}});
 
 updateAllLang();updateHighScore();setConn(false);
