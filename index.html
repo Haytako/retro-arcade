@@ -678,20 +678,20 @@ function pongLoop(){if(!pongActive)return;
     if(ballX<0){score2++;beep(220,150,0.15);pongResetBall(1)}
     if(ballX>PW){score1++;beep(220,150,0.15);pongResetBall(-1)}
     const maxV=8;ballVX=Math.max(-maxV,Math.min(maxV,ballVX));ballVY=Math.max(-maxV,Math.min(maxV,ballVY));
-    // Beatable Pong AI: slow, late reaction, no aiming — just tracks
+    // Balanced Pong AI: challenging but beatable
     const aiPaddleCenter=p2Y+PADDLE_H/2;
     let aiTarget,aiSpeed;
-    if(ballVX>0&&ballX>PW*0.55){
-      // Ball approaching — track ball Y at limited speed (no prediction, no aiming)
-      aiTarget=ballY; aiSpeed=1.3;
+    if(ballVX>0&&ballX>PW*0.4){
+      // Ball approaching — track ball Y, no prediction
+      aiTarget=ballY; aiSpeed=1.7;
     }else{
-      // Ball going away — drift to center slowly
-      aiTarget=PH/2; aiSpeed=0.8;
+      // Ball going away — drift to center
+      aiTarget=PH/2; aiSpeed=1.0;
     }
     const aiDiff=aiTarget-aiPaddleCenter;
     const aiDead=PADDLE_H*0.2;
     if(Math.abs(aiDiff)>aiDead){
-      p2Y+=Math.sign(aiDiff)*aiSpeed; // fixed speed, smooth, no jitter
+      p2Y+=Math.sign(aiDiff)*aiSpeed;
     }
     p2Y=Math.max(0,Math.min(PH-PADDLE_H,p2Y));
     if(score1>=WIN_SCORE){pongEndGame(1);return}
