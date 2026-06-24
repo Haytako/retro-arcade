@@ -60,6 +60,9 @@ html,body{background:#000;width:100%;height:100%;font-family:'Press Start 2P',mo
 .turn-thinking{color:#ffcc00;text-shadow:0 0 8px #ffcc00;animation:blink 0.5s step-end infinite}
 #board-wrap{position:relative;border:3px solid #ff6600;box-shadow:0 0 20px rgba(255,102,0,0.3)}
 #board{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr)}
+.coord-grid{display:inline-grid;gap:0}
+.coord-lbl{display:flex;align-items:center;justify-content:center;font-size:7px;color:#888;user-select:none;line-height:1}
+.coord-lbl-corner{background:transparent!important;border:none!important}
 .cell{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .cell-light{background:#1a0f05}.cell-dark{background:#3a2510}
 .piece{width:80%;height:80%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:clamp(8px,2.5vw,14px);font-weight:bold;transition:all 0.15s;cursor:pointer}
@@ -262,9 +265,31 @@ function chkGetMovesFor(r,c,isAI){const v=chkBoard[r][c];if(!v)return{moves:[],c
 function chkGetMoves(r,c){return chkGetMovesFor(r,c,false)}
 function chkAIHasCapture(){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(chkAIOwn(chkBoard[r][c])&&chkGetMovesFor(r,c,true).captures.length>0)return true;return false}
 function chkHasCapture(){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(chkIsOwn(chkBoard[r][c])&&chkGetMoves(r,c).captures.length>0)return true;return false}
-function chkCalcSize(){const s=Math.min(window.innerWidth-20,window.innerHeight-160,500);return Math.floor(s/8)*8}
-function chkRender(){const sz=chkCalcSize(),csz=sz/8;const bEl=document.getElementById('board');bEl.style.width=sz+'px';bEl.style.height=sz+'px';bEl.innerHTML='';const flipped=chkPlayer===2;for(let ri=0;ri<8;ri++)for(let ci=0;ci<8;ci++){const r=flipped?7-ri:ri,c=flipped?7-ci:ci;const cell=document.createElement('div');cell.className='cell '+((r+c)%2===0?'cell-light':'cell-dark');cell.style.width=csz+'px';cell.style.height=csz+'px';const v=chkBoard[r][c];if(v>0){const p=document.createElement('div');p.className='piece '+(chkIsWhite(v)?'piece-white':'piece-dark')+(chkIsKing(v)?' piece-king':'');if(chkSelected&&chkSelected.r===r&&chkSelected.c===c)p.classList.add('selected');cell.appendChild(p)}
-cell.onclick=()=>chkCellClick(r,c);bEl.appendChild(cell)}document.getElementById('chk-p1-info').textContent=(chkPlayer===1?'►':'')+chkName+': '+chkCount(1);document.getElementById('chk-p2-info').textContent=chkP2Name+': '+chkCount(2)+(chkPlayer===2?'◄':'');const ti=document.getElementById('chk-turn-ind');if(chkMyTurn){ti.textContent='► '+t('YOUR TURN')+' ◄';ti.className='turn-yours'}else if(chkGameMode==='ai'){ti.textContent=t('THINKING...');ti.className='turn-thinking'}else{ti.textContent=t("OPPONENT'S TURN");ti.className='turn-wait'}}
+function chkCalcSize(){const s=Math.min(window.innerWidth-40,window.innerHeight-180,500);return Math.floor(s/8)*8}
+function chkRender(){const sz=chkCalcSize(),csz=sz/8;const bEl=document.getElementById('board');bEl.style.width=sz+'px';bEl.style.height=sz+'px';bEl.innerHTML='';const wrap=document.getElementById('board-wrap');const flipped=chkPlayer===2;const cols='ABCDEFGH';// Build coordinate grid: top row of letters, then 8 rows with number + 8 cells + number
+const oldCg=wrap.querySelector('.coord-grid');if(oldCg)oldCg.remove();
+const cg=document.createElement('div');cg.className='coord-grid';cg.style.gridTemplateColumns=(csz*0.6)+'px repeat(8,'+csz+'px) '+(csz*0.6)+'px';cg.style.gridTemplateRows=(csz*0.6)+'px repeat(8,'+csz+'px) '+(csz*0.6)+'px';
+// Top-left corner
+cg.appendChild(Object.assign(document.createElement('div'),{className:'coord-lbl coord-lbl-corner'}));
+// Top letters
+for(let ci=0;ci<8;ci++){const lbl=document.createElement('div');lbl.className='coord-lbl';lbl.textContent=cols[flipped?7-ci:ci];lbl.style.color='#ff6600';cg.appendChild(lbl)}
+// Top-right corner
+cg.appendChild(Object.assign(document.createElement('div'),{className:'coord-lbl coord-lbl-corner'}));
+// Rows
+for(let ri=0;ri<8;ri++){const r=flipped?7-ri:ri;
+// Left number
+const lNum=document.createElement('div');lNum.className='coord-lbl';lNum.textContent=8-ri;lNum.style.color='#ff6600';cg.appendChild(lNum);
+// 8 cells
+for(let ci2=0;ci2<8;ci2++){const c2=flipped?7-ci2:ci2;const cell=document.createElement('div');cell.className='cell '+((r+c2)%2===0?'cell-light':'cell-dark');cell.style.width=csz+'px';cell.style.height=csz+'px';const v=chkBoard[r][c2];if(v>0){const p=document.createElement('div');p.className='piece '+(chkIsWhite(v)?'piece-white':'piece-dark')+(chkIsKing(v)?' piece-king':'');if(chkSelected&&chkSelected.r===r&&chkSelected.c===c2)p.classList.add('selected');cell.appendChild(p)}
+cell.onclick=()=>chkCellClick(r,c2);cg.appendChild(cell)}
+// Right number
+const rNum=document.createElement('div');rNum.className='coord-lbl';rNum.textContent=8-ri;rNum.style.color='#ff6600';cg.appendChild(rNum)}
+// Bottom row
+cg.appendChild(Object.assign(document.createElement('div'),{className:'coord-lbl coord-lbl-corner'}));
+for(let ci=0;ci<8;ci++){const lbl=document.createElement('div');lbl.className='coord-lbl';lbl.textContent=cols[flipped?7-ci:ci];lbl.style.color='#ff6600';cg.appendChild(lbl)}
+cg.appendChild(Object.assign(document.createElement('div'),{className:'coord-lbl coord-lbl-corner'}));
+wrap.appendChild(cg);bEl.style.display='none';
+document.getElementById('chk-p1-info').textContent=(chkPlayer===1?'►':'')+chkName+': '+chkCount(1);document.getElementById('chk-p2-info').textContent=chkP2Name+': '+chkCount(2)+(chkPlayer===2?'◄':'');const ti=document.getElementById('chk-turn-ind');if(chkMyTurn){ti.textContent='► '+t('YOUR TURN')+' ◄';ti.className='turn-yours'}else if(chkGameMode==='ai'){ti.textContent=t('THINKING...');ti.className='turn-thinking'}else{ti.textContent=t("OPPONENT'S TURN");ti.className='turn-wait'}}
 
 // ===== CHECKERS AI =====
 function chkAIMove(){
@@ -505,11 +530,31 @@ function bsClearShips(){bsMyShips=[];bsCurShip=0;bsRenderMy();bsRenderList()}
 function bsToggleRotate(){bsHoriz=!bsHoriz;sndClick()}
 function bsToggleHide(){bsHideShips=!bsHideShips;const btn=document.getElementById('bs-hide-btn');if(bsHideShips){btn.textContent='👁 '+t('SHOW SHIPS');btn.className='ctrl-btn show-ships';document.getElementById('bs-my-grid').classList.add('grid-masked')}else{btn.textContent='👁 '+t('HIDE SHIPS');btn.className='ctrl-btn hide-ships';document.getElementById('bs-my-grid').classList.remove('grid-masked')}sndClick();bsRenderMy()}
 function bsCalcCell(){return Math.floor(Math.min(window.innerWidth-30,300)/10)}
-function bsRenderMy(){const csz=bsCalcCell();const el=document.getElementById('bs-my-grid');el.style.gridTemplateColumns=`repeat(10,${csz}px)`;el.innerHTML='';const g=Array(10).fill(null).map(()=>Array(10).fill(0));for(const s of bsMyShips)for(const[r,c] of s.cells)g[r][c]=1;for(const key in bsEnemyShots){const[r,c]=key.split(',').map(Number);g[r][c]=bsEnemyShots[key]?2:3}for(const s of bsMyShips)if(s.sunk)for(const[r,c] of s.cells)g[r][c]=4;for(let r=0;r<10;r++)for(let c=0;c<10;c++){const cell=document.createElement('div');cell.className='gcell';cell.style.width=csz+'px';cell.style.height=csz+'px';if(g[r][c]===1)cell.classList.add(bsHideShips?'ship-hidden':'ship');else if(g[r][c]===2)cell.classList.add('hit');else if(g[r][c]===3)cell.classList.add('miss');else if(g[r][c]===4)cell.classList.add('sunk');if(bsPhase==='placement'&&bsCurShip<BS_SHIPS.length){cell.onclick=()=>bsPlaceClick(r,c);cell.onmouseenter=()=>bsPreview(r,c);cell.onmouseleave=()=>bsClearPreview()}el.appendChild(cell)}}
-function bsRenderEnemy(){const csz=bsCalcCell();const el=document.getElementById('bs-enemy-grid');el.style.gridTemplateColumns=`repeat(10,${csz}px)`;el.innerHTML='';const g=Array(10).fill(null).map(()=>Array(10).fill(0));for(const key in bsMyShots){const[r,c]=key.split(',').map(Number);g[r][c]=bsMyShots[key]?2:3}for(const s of bsEnemyShips)if(s.sunk)for(const[r,c] of s.cells)g[r][c]=4;for(let r=0;r<10;r++)for(let c=0;c<10;c++){const cell=document.createElement('div');cell.className='gcell';cell.style.width=csz+'px';cell.style.height=csz+'px';if(g[r][c]===2)cell.classList.add('hit');else if(g[r][c]===3)cell.classList.add('miss');else if(g[r][c]===4)cell.classList.add('sunk');if(bsPhase==='playing'&&bsMyTurn&&g[r][c]===0){cell.classList.add('fire-target');cell.onclick=()=>bsFireAt(r,c)}el.appendChild(cell)}}
+function bsBuildGrid(el,csz,renderCellsFn){const cols='ABCDEFGHIJ';el.style.gridTemplateColumns=(csz*0.7)+'px repeat(10,'+csz+'px) '+(csz*0.7)+'px';el.style.gridTemplateRows=(csz*0.7)+'px repeat(10,'+csz+'px) '+(csz*0.7)+'px';el.innerHTML='';// Top-left corner
+el.appendChild(Object.assign(document.createElement('div'),{className:'coord-lbl coord-lbl-corner'}));
+// Top letters
+for(let c=0;c<10;c++){const lbl=document.createElement('div');lbl.className='coord-lbl';lbl.textContent=cols[c];lbl.style.color='#00ccff';el.appendChild(lbl)}
+// Top-right corner
+el.appendChild(Object.assign(document.createElement('div'),{className:'coord-lbl coord-lbl-corner'}));
+// 10 rows
+for(let r=0;r<10;r++){
+// Left number
+const lNum=document.createElement('div');lNum.className='coord-lbl';lNum.textContent=r+1;lNum.style.color='#00ccff';el.appendChild(lNum);
+// 10 cells
+renderCellsFn(el,r);
+// Right number
+const rNum=document.createElement('div');rNum.className='coord-lbl';rNum.textContent=r+1;rNum.style.color='#00ccff';el.appendChild(rNum)}
+// Bottom-left corner
+el.appendChild(Object.assign(document.createElement('div'),{className:'coord-lbl coord-lbl-corner'}));
+// Bottom letters
+for(let c=0;c<10;c++){const lbl=document.createElement('div');lbl.className='coord-lbl';lbl.textContent=cols[c];lbl.style.color='#00ccff';el.appendChild(lbl)}
+// Bottom-right corner
+el.appendChild(Object.assign(document.createElement('div'),{className:'coord-lbl coord-lbl-corner'}))}
+function bsRenderMy(){const csz=bsCalcCell();const el=document.getElementById('bs-my-grid');const g=Array(10).fill(null).map(()=>Array(10).fill(0));for(const s of bsMyShips)for(const[r,c] of s.cells)g[r][c]=1;for(const key in bsEnemyShots){const[r,c]=key.split(',').map(Number);g[r][c]=bsEnemyShots[key]?2:3}for(const s of bsMyShips)if(s.sunk)for(const[r,c] of s.cells)g[r][c]=4;bsBuildGrid(el,csz,(el2,r)=>{for(let c=0;c<10;c++){const cell=document.createElement('div');cell.className='gcell';cell.style.width=csz+'px';cell.style.height=csz+'px';cell.dataset.r=r;cell.dataset.c=c;if(g[r][c]===1)cell.classList.add(bsHideShips?'ship-hidden':'ship');else if(g[r][c]===2)cell.classList.add('hit');else if(g[r][c]===3)cell.classList.add('miss');else if(g[r][c]===4)cell.classList.add('sunk');if(bsPhase==='placement'&&bsCurShip<BS_SHIPS.length){cell.onclick=()=>bsPlaceClick(r,c);cell.onmouseenter=()=>bsPreview(r,c);cell.onmouseleave=()=>bsClearPreview()}el2.appendChild(cell)}})}
+function bsRenderEnemy(){const csz=bsCalcCell();const el=document.getElementById('bs-enemy-grid');const g=Array(10).fill(null).map(()=>Array(10).fill(0));for(const key in bsMyShots){const[r,c]=key.split(',').map(Number);g[r][c]=bsMyShots[key]?2:3}for(const s of bsEnemyShips)if(s.sunk)for(const[r,c] of s.cells)g[r][c]=4;bsBuildGrid(el,csz,(el2,r)=>{for(let c=0;c<10;c++){const cell=document.createElement('div');cell.className='gcell';cell.style.width=csz+'px';cell.style.height=csz+'px';if(g[r][c]===2)cell.classList.add('hit');else if(g[r][c]===3)cell.classList.add('miss');else if(g[r][c]===4)cell.classList.add('sunk');if(bsPhase==='playing'&&bsMyTurn&&g[r][c]===0){cell.classList.add('fire-target');cell.onclick=()=>bsFireAt(r,c)}el2.appendChild(cell)}})}
 function bsRenderList(){const el=document.getElementById('bs-ship-list');el.innerHTML='';const placed=bsMyShips.length;for(let i=0;i<BS_SHIPS.length;i++){const d=document.createElement('div');d.className='ship-item'+(i<placed?' placed':'')+(i===bsCurShip&&i<BS_SHIPS.length?' active':'');d.textContent=t('Ship')+' '+BS_SHIPS[i];el.appendChild(d)}}
 function bsPlaceClick(r,c){if(bsCurShip>=BS_SHIPS.length)return;const size=BS_SHIPS[bsCurShip];const grid=Array(10).fill(null).map(()=>Array(10).fill(0));for(const s of bsMyShips)for(const[cr,cc] of s.cells)grid[cr][cc]=1;if(bsCanPlace(grid,size,r,c,bsHoriz)){bsPlaceShip(grid,bsMyShips,size,r,c,bsHoriz);bsCurShip++;sndClick();bsRenderMy();bsRenderList()}else{beep(200,80,0.08)}}
-function bsPreview(r,c){if(bsCurShip>=BS_SHIPS.length)return;const size=BS_SHIPS[bsCurShip];const gridEl=document.getElementById('bs-my-grid');const cells=gridEl.querySelectorAll('.gcell');const g=Array(10).fill(null).map(()=>Array(10).fill(0));for(const s of bsMyShips)for(const[cr,cc] of s.cells)g[cr][cc]=1;const ok=bsCanPlace(g,size,r,c,bsHoriz);for(let i=0;i<size;i++){const cr=bsHoriz?r:r+i,cc=bsHoriz?c+i:c;if(cr<0||cr>=10||cc<0||cc>=10)continue;const idx=cr*10+cc;if(cells[idx])cells[idx].classList.add(ok?'preview-ok':'preview-no')}}
+function bsPreview(r,c){if(bsCurShip>=BS_SHIPS.length)return;const size=BS_SHIPS[bsCurShip];const gridEl=document.getElementById('bs-my-grid');const g=Array(10).fill(null).map(()=>Array(10).fill(0));for(const s of bsMyShips)for(const[cr,cc] of s.cells)g[cr][cc]=1;const ok=bsCanPlace(g,size,r,c,bsHoriz);for(let i=0;i<size;i++){const cr=bsHoriz?r:r+i,cc=bsHoriz?c+i:c;if(cr<0||cr>=10||cc<0||cc>=10)continue;const cell=gridEl.querySelector(`.gcell[data-r="${cr}"][data-c="${cc}"]`);if(cell)cell.classList.add(ok?'preview-ok':'preview-no')}}
 function bsClearPreview(){document.querySelectorAll('.preview-ok,.preview-no').forEach(el=>{el.classList.remove('preview-ok','preview-no')})}
 function bsFireAt(r,c){if(!bsMyTurn||bsPhase!=='playing')return;const key=r+','+c;if(bsMyShots[key]!==undefined)return;bsMyTurn=false;
   if(bsGameMode==='ai'){
